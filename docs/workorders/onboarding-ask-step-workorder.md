@@ -1,6 +1,6 @@
 # Workorder — Onboarding "ask" step (minimal)
 
-**Status:** Draft for the maintainer's review
+**Status:** Revised after Phase 0, for the maintainer's review
 **Goal:** A stranger who installs Thresher and finishes onboarding can get Tier 1 mail. Today they cannot.
 
 ---
@@ -13,68 +13,149 @@ Confirmed in `CLAUDE.md`:
 - Those groups ship with placeholder members that match nobody: `boss@example.com` in one, nothing in the other.
 - On a fresh install, measured on the 150-message demo corpus, the split across T1–T5 is **0 / 15 / 21 / 70 / 44**.
 
-So a stranger's first experience is a list with no Tier 1, and focus mode, which alerts on Tier 1 only, stays silent. That is the first impression the posts would drive people into.
+So a stranger's first experience is a list with no Tier 1, and focus mode, which alerts on Tier 1 only, stays silent.
 
 ## Scope
 
 **In:**
 - One onboarding step that asks for the people whose mail matters most and writes them into the `leadership` and `family` groups.
 - It replaces the placeholder `boss@example.com`.
+- Server-side pattern normalization and validation for sender groups. This is needed because the API currently accepts bare domains that silently never match.
 - A skip path that is honest about what skipping costs.
 - `docs/STATUS.md`: the public state pointer (see the last section).
 
-**Out (deferred):**
+**Out (deferred, recorded in `STATUS.md`):**
 - The "propose" step, which suggests senders from fetched mail.
 - Header matching (OI38).
 - The T4→T3 default change.
-- Any rule editing beyond group membership.
+- Group edits in Settings not raising the "rules changed" staleness hint (new open item; see Phase 0 finding 3).
+- A `THRESHER_HOME` isolation mechanism (see Phase 0 finding 4). Phase 3 uses a separate macOS user instead.
+- The tutorial-flag race (known limit; see Phase 1). Recovery: "Reclassify all" in Settings → Rules.
 
 ---
 
-## Phase 0 — Investigation (read-only, no commits)
+## Phase 0 — Investigation (done)
 
-Report each item with the code path cited. Report no sender addresses or subjects.
+Findings this revision depends on:
 
-1. **Onboarding flow order.** List the current steps in order. Mark where account connection happens and where the first fetch starts and finishes relative to the other steps.
-2. **Group membership write path.** Find the existing API that adds a pattern to `sender_group_patterns`, if one exists. Does Settings already offer group editing, and does it go through that API?
-3. **Reclassify path.** Is there one? When group membership changes, do already-stored messages get re-tiered, or only new mail?
-4. **Isolated test install.** How can the app run against a separate data directory, so a fresh-install onboarding test doesn't touch the maintainer's daily-driver database and local `seed.sql`? If no mechanism exists, say so and propose the smallest one. Do not build it yet.
-5. **Pattern format.** Do group patterns accept full addresses only, or also domains or wildcards? What does the matcher do with each? Specifically: does a domain pattern match by exact equality on the part after the `@`, or by substring? A substring match would let `acme.example` also match `notacme.example`.
-
-**Gate:** The maintainer reviews the report. Phases 1–2 below are the intended shape and get revised against what Phase 0 finds.
+1. **The first fetch starts within about 30 s of Connect,** while onboarding is still on later steps. Mail is classified once, at ingest. An ask step placed after Connect would race the fetch.
+2. **No add-one-pattern API exists.**
+   - `PUT /sender-groups/<id>` replaces a group's whole pattern set.
+   - `_validate_sender_group` requires a non-empty list of strings but never checks their format.
+   - Settings group editing already uses this API.
+3. **Reclassify exists, but only on demand** (`POST /messages/reclassify-all` → `reclassify_all`). Group edits never trigger it, and they don't raise the staleness hint, because `sender_groups` has no `updated_at`.
+4. **No isolation mechanism exists.**
+   - The database, logs, Keychain service, UserDefaults and API port are all fixed.
+   - A separate macOS user isolates everything except port 8765.
+5. **Pattern forms** (`ClassificationEngine._pattern_matches`):
+   - A full address matches case-insensitively.
+   - `@domain` matches exactly on the part after the `@`, with no lookalikes and no subdomains.
+   - `*` globs are full-match regexes. An unanchored glob such as `*acme.example` behaves like a substring match.
+   - **A bare domain such as `acme.example` is accepted by the API and never matches anything.**
 
 ---
 
 ## Phase 1 — Backend
 
-- If no group-membership write API exists, add one. Reuse the existing one if it does.
-- **Placeholder replacement:** when the user supplies at least one real address for `leadership`, remove `boss@example.com`. If the user skips, leave it in place. It matches nobody either way, and removing it on skip would change shipped data for no benefit.
-- **Reclassify:** if Phase 0 shows the first fetch can finish before this step completes, already-stored messages must be re-tiered after membership is saved. Otherwise the user enters their people and still sees zero Tier 1. If the step always runs before the first fetch, there's no reclassify requirement. Record which case applies, with the reason, as a D-series decision.
-- If the isolated-install mechanism from Phase 0 item 4 is approved, build it here.
-- **Domain entries are accepted** (decided by the maintainer, 2026-10-04). Each entry is either a full address or a bare domain such as `acme.example`. If Phase 0 shows group patterns can't hold domains, add that support here.
-  - A domain matches **exactly** on the part after the `@`. `acme.example` does not match `notacme.example`, and does not match subdomains such as `mail.acme.example`. Subdomain support is out of scope.
-  - **Reject shared consumer mail domains** such as `gmail.com`, `outlook.com`, `icloud.com`, and `yahoo.com`. Entering one would put a large share of all mail in Tier 1. Keep a short, explicit list, and show a message telling the user to enter the full address instead.
-  - Record the domain-matching rule and the consumer-domain list as a D-series decision.
+### Decisions (record each in `DECISIONS.md` with its rationale)
+
+1. **The step goes before Connect.** The order becomes Welcome → Ask → Connect → Preferences → Notifications → Done.
+   - Groups are global, not per-account, so they can be set before any account exists.
+   - On a fresh install, membership is then in place before the first fetch, so mail is tiered correctly at ingest with no race against the poller.
+   - "Connect later" users also see the step, because it comes before the branch that skips to Done.
+2. **When the tutorial has been seen, onboarding starts at Ask, not Connect.**
+   - Today `OnboardingView.swift:75–77` jumps straight to Connect. A returning user would never reach the step, and decision 5 would cover nobody.
+   - Ask prefills each input with the group's current members, excluding `boss@example.com`.
+   - If a prefilled member fails validation, the whole request is rejected and the error names that entry. Removing the entry unblocks saving.
+3. **Back into Ask is disabled once an account has been connected in this onboarding run.**
+   - Why: a poll pass builds its engine once. Connecting starts a fetch within about 30 s, and membership edits made while that pass runs don't reach mail it is already ingesting, even after a reclassify.
+4. **A dedicated endpoint, `POST /onboarding/people`, replaces "reuse `PUT /sender-groups/<id>`".**
+   - Body: `{"leadership": [...], "family": [...]}`.
+   - It normalizes and validates every entry, then **replaces** each group with the submitted set, dropping `boss@example.com`. Both groups are written in one transaction, and the endpoint reclassifies if any messages are stored.
+   - Replace, not merge, because Ask shows the current members (decision 2). Under merge, removing a prefilled member would silently do nothing.
+   - If any entry fails validation, nothing is written, and the error names the entry.
+   - An empty request writes nothing. A group whose list is empty or absent is left unchanged, since an empty pattern set is invalid.
+   - Why: the alternative was a client-side read-modify-write sequence. Its behaviour would arrive only with the UI, and Phase 1's tests would re-enact a script rather than test shipped code. One endpoint makes the sequence atomic and testable, and gives the UI a single call.
+5. **Reclassify after a successful membership write, when stored messages exist.** This covers a returning user who disconnected and still has stored mail. On a fresh install the store is empty, so it does nothing. It runs inside the endpoint (decision 4).
+6. **Bare domains are normalized, not rejected.** A pattern with no `@` and no `*` that is shaped like a domain is stored as `@domain`.
+   - This happens in shared validation, so `POST /onboarding/people`, `POST /sender-groups` and `PUT /sender-groups/<id>` all get it. It also applies to the legacy `email_pattern` body field on `POST /sender-groups`.
+   - Responses return the stored form, so the UI shows what was actually saved.
+   - Precedent: `CLAUDE.md` already bans rule pairings that render as live and silently never fire. An inert bare domain is the same failure.
+7. **Server-side format validation.** Each pattern must be one of:
+   - a full address
+   - `@domain`
+   - a bare domain (normalized as in decision 6)
+   - a glob: contains `*` only before the `@`, contains no whitespace, and contains exactly one `@`
+
+   Anything else is rejected with a message naming the entry.
+   - Keeping `*` out of the domain means a glob can never span domains. `*@*` and `*@*.org` fail format validation, and `*@example.com` and `john*@acme.example` still work. Subdomain globs go too, which is fine because subdomain support is out of scope.
+   - Validation applies on write only. Existing stored patterns are unaffected until they are next saved.
+8. **Whole-consumer-domain patterns are rejected in every group.**
+   - Test: a pattern covers a whole domain *d* if, after normalization, the real matcher matches two different probe addresses at *d*.
+   - This catches the bare, `@` and `*@` forms with one rule, instead of string-matching each form.
+   - Full addresses at consumer domains (such as a family member's Gmail address) stay allowed.
+   - List: `gmail.com`, `googlemail.com`, `outlook.com`, `hotmail.com`, `live.com`, `icloud.com`, `me.com`, `yahoo.com`, `aol.com`, `proton.me`, `protonmail.com`.
+   - Anyone who really wants a whole consumer domain can still write a `sender_domain` rule.
+
+### Known limit: the tutorial-flag race
+
+Onboarding also runs when an account is connected but the tutorial flag is unset (for example after the flag was deleted). In that case the poller is already running while Ask saves, so mail in a pass that's already under way keeps the old groups, as in decision 3. This is not handled. Recovery: "Reclassify all" in Settings → Rules. Listed as an open item in `STATUS.md`.
+
+### Implementation
+
+- `POST /onboarding/people` as in decision 4. Group membership is read from `sender_group_patterns`, falling back to `email_pattern` for a group with no pattern rows, the same way the engine reads it.
+- Update the Settings group editor help text (`SenderGroupEditorView.swift:109`) to say a bare domain is accepted and stored as `@domain`.
+- **Existing inert patterns:** provide a count-only command the maintainer runs against their own database. It prints how many stored group patterns are bare (inert today) and how many would be rejected by decisions 7–8, with domain-side globs (a `*` after the `@`) counted separately. It counts `sender_group_patterns` rows, plus `email_pattern` for groups with no pattern rows, since the engine falls back to that column. It must print no pattern text. This phase does no migration; the counts decide whether one is needed.
+- **Report for Phase 3 safety:** does Thresher write anything back to the mail server (flags, moves, deletes)? Cite the code paths. Read-only check.
 
 ### Tests (house rule: every guard gets a self-test that proves it can fail)
 
-- Seed `seed.example.sql` **explicitly**, not via `init_db(seed=True)`, which prefers a local `seed.sql` when one exists.
-- **Positive:** add one `leadership` address through the API, classify a corpus containing mail from that address, and assert T1 > 0.
-- **Self-test:** the same corpus with no address added must give T1 == 0. If it doesn't, the positive test proves nothing.
-- Assert non-zero **pattern rows** in `sender_group_patterns` after the write. Do not assert only that classification works, since `CLAUDE.md` documents a fallback that can satisfy that while the groups are inert.
-- If reclassify is in scope: assert that a message stored *before* the membership write moves to T1 *after* it.
-- **Domain positive:** add `acme.example`, and mail from `someone@acme.example` reaches T1.
-- **Domain self-tests** (each must stay out of T1): `someone@notacme.example`, and `someone@mail.acme.example`. If either reaches T1, the domain match is substring-based and the positive test proves nothing.
-- **Consumer-domain guard:** the API rejects `gmail.com`. Self-test: temporarily remove `gmail.com` from the list and confirm the rejection test goes red.
+All tests target `POST /onboarding/people` unless stated otherwise.
 
-**Gate:** The maintainer reviews the diff at the commit seam.
+- Seed `seed.example.sql` **explicitly**, not via `init_db(seed=True)`.
+- **Address positive:**
+  - Add one `leadership` address. A corpus containing mail from it gives T1 > 0.
+  - Self-test: the same corpus with no address added gives T1 == 0.
+- **Pattern rows:** assert non-zero rows in `sender_group_patterns` after the write. Do not assert only that classification works, since the fallback can satisfy that while the groups are inert.
+- **Placeholder:**
+  - After a write, `boss@example.com` is gone from `leadership`.
+  - Replace: a pre-existing member that is submitted again remains, and one left out of the submitted set is removed.
+  - An empty request writes nothing: both groups and their pattern rows are unchanged.
+- **Normalization:**
+  - `acme.example` is stored as `@acme.example`, and `someone@acme.example` reaches T1.
+  - `someone@notacme.example` and `someone@mail.acme.example` stay out of T1.
+  - The legacy `email_pattern` field on `POST /sender-groups` is normalized the same way.
+  - Self-test: with normalization disabled, the bare-domain positive test goes red.
+- **Format validation:** an entry that is no recognized form (e.g. `not a pattern`, or a glob with two `@`) is rejected, and the error names it.
+- **Consumer-domain guard:**
+  - `gmail.com`, `@gmail.com` and `*@gmail.com` are rejected with the consumer-domain message. `*gmail.com` is rejected too: under decision 7 it has no `@`, so it fails format validation.
+  - `someone@gmail.com` is accepted.
+  - Self-test: remove `gmail.com` from the list and confirm the rejection tests go red.
+- **Domain-side globs:**
+  - `*@*` and `*@*.org` fail format validation.
+  - Self-test: allow `*` after the `@` and confirm the `*@*.org` test goes red.
+- **Atomicity:** a request containing one invalid entry writes nothing to either group, and the error names the entry.
+- **Reclassify:**
+  - A message stored *before* the request is in T1 *after* it.
+  - Self-test: the same request with the endpoint's reclassify step disabled leaves it out of T1.
+
+**Gate:** the maintainer reviews the diff at the commit seam.
 
 ---
 
 ## Phase 2 — UI
 
-- **The step:** two short inputs. "People whose mail you never want to miss at work" writes to `leadership` (wording approved by the maintainer). "Family" writes to `family`. Each takes one or more entries, and each entry is a full address or a domain. Validate format plainly, and show the consumer-domain rejection message inline, next to the entry that caused it.
-- Helper text under the work input: you can enter a whole domain (for example `example.com`) to cover everyone there.
+- **Placement:** after Welcome, before Connect. When the tutorial has been seen, onboarding starts here (decision 2).
+- **Prefill:** each input starts with the group's current members, excluding `boss@example.com`. If a prefilled member is rejected on save, show the error inline next to it. Removing the entry unblocks saving.
+- **Emptied group:** if an input that was prefilled with members is emptied, show inline text saying this step can't remove everyone and to use Settings instead. Saving with that group empty leaves it unchanged (decision 4).
+- **Back:** disabled into Ask once an account has been connected in this onboarding run (decision 3).
+- **Save:** one call to `POST /onboarding/people` (decision 4). Skip sends nothing.
+- **The step:** two inputs.
+  - "People whose mail you never want to miss at work" writes to `leadership`.
+  - "Family" writes to `family`.
+  - Each takes one or more entries. Each entry is a full address or a domain.
+- **Helper text** under the work input: you can enter a whole domain (for example `example.com`) to cover everyone there.
+- **Feedback:** show server rejections inline, next to the entry that caused them. After saving, show entries in their stored form (`@example.com`), so the user sees what will actually match.
 - **Skip:** allowed. The skip confirmation says plainly that Tier 1 stays empty until people are added, and where to add them later in Settings. Per `CLAUDE.md`, no copy may imply a fresh install produces a tiered list.
 - **Keyboard path:** the step must be completable with Tab, Return, and Escape alone.
 - Copy is a draft for the maintainer to react to on screen, not to approve in text.
@@ -85,21 +166,32 @@ Report each item with the code path cited. Report no sender addresses or subject
 
 A view-model test proves the state is right. It does not prove the step is reachable or legible. That's what Phase 3 is for.
 
-**Gate:** The maintainer reviews the diff.
+**Gate:** the maintainer reviews the diff.
 
 ---
 
-## Phase 3 — Human verification (The maintainer runs this, not Claude Code)
+## Phase 3 — Human verification (the maintainer runs this, not Claude Code)
 
-On the isolated install from Phase 0 item 4, never on the daily-driver data:
+**Setup:**
+- Use a separate macOS user account, with the daily-driver app quit. Both instances use port 8765.
+- Run the app built by `scripts/build.sh`. The bundle carries only `seed.example.sql`.
+- If Phase 1 reports that Thresher writes anything back to the mail server, connect a secondary mail account here rather than the daily one.
 
-1. Fresh onboarding, entering one real address you receive mail from. After the first fetch, mail from that address shows as Tier 1.
-2. Fresh onboarding, skipping the step. The skip message appears, the main list loads, and Tier 1 is empty, as expected.
-3. The keyboard-only pass through the step.
-3a. Enter your work domain, and confirm mail from a colleague you didn't list individually reaches Tier 1. Enter `gmail.com`, and confirm it's refused with a readable message.
-4. Confirm the daily-driver database is unchanged.
+**Reset (run in the test user only, never in the daily account), with the app quit:**
+1. Delete `~/Library/Application Support/thresher`.
+2. Remove the `thresher` Keychain items: run `security delete-generic-password -s thresher` repeatedly until it reports that no item was found.
+3. Delete the tutorial flag: `defaults delete <bundle-id> onboarding.tutorialSeen`, where `<bundle-id>` is the Release `PRODUCT_BUNDLE_IDENTIFIER` in `frontend/Thresher.xcodeproj/project.pbxproj`.
 
-**Push gate:** held until all four pass.
+**Steps:**
+1. Fresh onboarding. The ask step appears after Welcome and before Connect.
+2. Enter one address you receive mail from, then connect. After the first fetch, mail from that address shows as Tier 1.
+3. Reset the test user (above), then run onboarding again, skipping the step. The skip message appears, the main list loads, and Tier 1 is empty, as expected.
+4. Keyboard-only pass through the step.
+5. Enter your work domain bare. It displays as `@yourdomain` after saving, and mail from a colleague you didn't list individually reaches Tier 1.
+6. Enter `gmail.com`. It is refused with a readable message. A full Gmail address is accepted.
+7. In your daily account, confirm the daily-driver app and database are unchanged.
+
+**Push gate:** held until all seven pass.
 
 ---
 
@@ -114,7 +206,8 @@ Rule: **no real addresses, names, or subjects ever.** Usage findings get abstrac
 
 ## Completion criteria
 
-- All of Phase 1's tests are green, including the self-test.
-- Phase 3 passes on an isolated install.
-- `STATUS.md` exists and lists the deferred items: propose step, OI38, T3 default.
-- The reclassify decision is recorded in `DECISIONS.md` with its rationale.
+- All Phase 1 tests are green, including every self-test.
+- Phase 3 passes on a separate macOS user.
+- `STATUS.md` exists and lists the deferred items above.
+- Decisions 1–8 and the tutorial-flag known limit are recorded in `DECISIONS.md` with their rationale.
+- The inert-pattern counts from the maintainer's database are reported (counts only), and the migration question is answered.
