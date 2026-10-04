@@ -106,6 +106,7 @@ Onboarding also runs when an account is connected but the tutorial flag is unset
 - `POST /onboarding/people` as in decision 4. Group membership is read from `sender_group_patterns`, falling back to `email_pattern` for a group with no pattern rows, the same way the engine reads it.
 - Update the Settings group editor help text (`SenderGroupEditorView.swift:109`) to say a bare domain is accepted and stored as `@domain`.
 - **Existing inert patterns:** provide a count-only command the maintainer runs against their own database. It prints how many stored group patterns are bare (inert today) and how many would be rejected by decisions 7–8, with domain-side globs (a `*` after the `@`) counted separately. It counts `sender_group_patterns` rows, plus `email_pattern` for groups with no pattern rows, since the engine falls back to that column. It must print no pattern text. This phase does no migration; the counts decide whether one is needed.
+  - **Answered 2026-10-04: no migration needed.** The maintainer's database, the only one that predates the validation change, has 9 group patterns: 0 rejected, 0 inert. Counts only; no pattern text was recorded.
 - **Report for Phase 3 safety:** does Thresher write anything back to the mail server (flags, moves, deletes)? Cite the code paths. Read-only check.
 
 ### Tests (house rule: every guard gets a self-test that proves it can fail)
@@ -210,4 +211,4 @@ Rule: **no real addresses, names, or subjects ever.** Usage findings get abstrac
 - Phase 3 passes on a separate macOS user.
 - `STATUS.md` exists and lists the deferred items above.
 - Decisions 1–8 and the tutorial-flag known limit are recorded in `DECISIONS.md` with their rationale.
-- The inert-pattern counts from the maintainer's database are reported (counts only), and the migration question is answered.
+- The inert-pattern counts from the maintainer's database are reported (counts only), and the migration question is answered. **Done 2026-10-04:** 9 patterns, 0 rejected, 0 inert; no migration needed.
