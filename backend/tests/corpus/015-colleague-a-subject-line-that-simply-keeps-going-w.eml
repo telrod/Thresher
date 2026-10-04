@@ -1,0 +1,14 @@
+From: Marta Lindqvist <marta.lindqvist@example.com>
+To: Thresher Demo <thresher.demo@gmail.com>
+Subject: A subject line that simply keeps going well past any reasonable width
+ so that row truncation and chip truncation both have something real to clip
+ against rather than a short string that happens to fit
+Date: Thu, 10 Sep 2026 02:24:00 +0000
+Message-ID: <c63002f8f3b4943e@example.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Deploy went through cleanly this time. The failing check turned out to be a s=
+tale cache in the runner rather than anything we'd changed. I've left a note =
+on the ticket so the next person doesn't lose an hour to it.

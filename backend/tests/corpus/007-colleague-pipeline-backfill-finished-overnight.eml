@@ -1,0 +1,11 @@
+To: Thresher Demo <thresher.demo@gmail.com>
+Subject: Pipeline backfill finished overnight
+Date: Mon, 31 Aug 2026 00:00:00 +0000
+Message-ID: <26837b58d7fff32f@example.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Wrote up the retro while it was fresh. Two themes came out: we're estimating =
+optimistically on anything touching the ingestion path, and nobody's sure who=
+ reviews schema changes. Worth ten minutes on Thursday.

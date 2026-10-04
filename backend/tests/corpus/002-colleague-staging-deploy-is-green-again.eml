@@ -1,0 +1,12 @@
+From: Ben Oyelaran <ben.oyelaran@example.com>
+To: Thresher Demo <thresher.demo@gmail.com>
+Subject: Staging deploy is green again
+Date: Tue, 08 Sep 2026 14:24:00 +0000
+Message-ID: <8d41faeb303d279a@example.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+A review has been requested. The branch touches the ingest path and two of th=
+e migration tests, so it wants a careful read rather than a skim. No rush on =
+it today.

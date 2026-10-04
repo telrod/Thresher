@@ -1,0 +1,11 @@
+From: Marta Lindqvist <marta.lindqvist@example.com>
+To: Thresher Demo <thresher.demo@gmail.com>
+Date: Sat, 29 Aug 2026 12:00:00 +0000
+Message-ID: <bf7964416ef57f3a@example.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Deploy went through cleanly this time. The failing check turned out to be a s=
+tale cache in the runner rather than anything we'd changed. I've left a note =
+on the ticket so the next person doesn't lose an hour to it.

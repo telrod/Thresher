@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the XCUITest runner.
+
+  WHY THIS FILE EXISTS
+  --------------------
+  The UI tests stand up a loopback FixtureServer so they run against seeded
+  data instead of the live store. The test runner app (xctrunner) is sandboxed,
+  and Xcode's generated entitlements grant `network.client` but NOT
+  `network.server` — so the runner can connect out but can never bind a
+  listening socket. The first headless run failed exactly there:
+
+      nw_listener_socket_inbox_create_socket bind(7, ::.0) tcp …
+      server failed [1: Operation not permitted]
+      error: "listener never became ready"
+
+  Adding `network.server` lets the in-process fixture listen on a
+  system-assigned loopback port. Scope is the test runner only — the shipping
+  app's entitlements are untouched, and nothing here reaches a release build.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.get-task-allow</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- The one addition: bind a loopback port for the fixture server. -->
+	<key>com.apple.security.network.server</key>
+	<true/>
+</dict>
+</plist>
