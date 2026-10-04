@@ -14,6 +14,7 @@ replaced by a prettier one that tests less is a regression that looks like
 progress, and that document is the record of what each one pins.
 """
 
+import re
 import subprocess
 import sys
 from email.header import decode_header, make_header
@@ -22,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from ingestion.parser import parse_message
+from name_terms import CORPUS_ONLY_PATTERNS, NAME_PATTERNS, decode
 
 _BACKEND = Path(__file__).resolve().parents[1]
 _REPO = _BACKEND.parent
@@ -111,22 +113,36 @@ def test_the_only_gmail_address_is_the_demo_identity():
 # uses on purpose, so sweeping for "example" would fail on correct data.
 #
 # These are the private-tree terms that must never reappear in a generated
-# corpus. They are kept verbatim rather than scrubbed: a guard against a term
-# cannot work if the term itself has been replaced by a placeholder — the whole
-# point is to fail if one of these ever comes back.
-@pytest.mark.parametrize("term", [
-    "verusen", "tomelrod", "tom.elrod", "gozio",
-    "tewksbury", "marcus", "addy robinson",
-])
-def test_no_term_from_the_real_corpus(term):
+# corpus. They are read from `name_terms.py`, the list the repo-wide name guard
+# also reads, and stored there ROT13-encoded: a guard against a term has to
+# contain the term, and in plain text it would trip the repo-wide guard.
+_CORPUS_TERMS = NAME_PATTERNS + CORPUS_ONLY_PATTERNS
+
+# The terms this test checked before it moved to the shared list (encoded). Each
+# must still be caught, so the move cannot silently weaken the corpus guard.
+_ORIGINAL_TERMS = ["irehfra", "gbzryebq", "gbz.ryebq", "tbmvb",
+                   "grjxfohel", "znephf", "nqql ebovafba"]
+
+
+@pytest.mark.parametrize("term", _ORIGINAL_TERMS)
+def test_shared_list_still_covers_original_term(term):
+    plain = decode(term)
+    assert any(re.search(p, plain, re.IGNORECASE) for p in _CORPUS_TERMS), (
+        f"the shared list no longer catches original term #{_ORIGINAL_TERMS.index(term)}")
+
+
+@pytest.mark.parametrize("pattern", _CORPUS_TERMS,
+                         ids=[f"term{i}" for i in range(len(_CORPUS_TERMS))])
+def test_no_term_from_the_real_corpus(pattern):
     """Nothing derived from the real mailbox — not a name, not a domain.
 
     The public-repo sweep found addresses a term list missed; this guards the
     other direction, so the synthetic corpus cannot reintroduce them.
     """
+    regex = re.compile(pattern, re.IGNORECASE)
     for path in _fixture_paths():
-        haystack = path.read_bytes().lower()
-        assert term.encode() not in haystack, f"{path.name} contains {term!r}"
+        haystack = path.read_bytes().decode("latin-1")
+        assert not regex.search(haystack), f"{path.name} contains a blocked term"
 
 
 # ── The edge cases the fixtures exist to pin ──────────────────────────────────
