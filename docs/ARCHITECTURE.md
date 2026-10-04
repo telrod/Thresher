@@ -333,7 +333,7 @@ offset and `datetime('now')` does not.
 ## 8. Running the test suites
 
 ```
-cd backend && python3 -m pytest tests/ -q                    # 427 tests, ~19s
+cd backend && python3 -m pytest tests/ -q                    # 430 tests, ~19s
 
 xcodebuild -project frontend/Thresher.xcodeproj \
   -scheme Thresher -destination 'platform=macOS' \
