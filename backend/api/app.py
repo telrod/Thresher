@@ -53,6 +53,9 @@ from db.database import (
     FRESH_DAYS,
 )
 from classification.engine import ClassificationResult
+from classification.patterns import (
+    PLACEHOLDER_PATTERN, normalize_pattern, normalize_patterns, pattern_error,
+)
 from notifications.service import NotificationService
 
 log = logging.getLogger(__name__)
@@ -97,6 +100,9 @@ RETRIEVAL_CUTOFF_KEY_PREFIX = "retrieval_cutoff:"   # + <account> → ISO-8601
 # of waiting out its interval. Read and CLEARED by the producer, so it is a
 # one-shot request rather than standing state.
 POLL_REQUESTED_KEY = "poll_requested_at"
+
+# The groups the onboarding Ask step writes (D78). Both carry the Tier 1 rules.
+ONBOARDING_GROUPS = ("leadership", "family")
 
 # ── Notification preferences (typed surface over the preferences table) ───────
 # The Settings screen binds to these specific keys (frontend gap #5). They live
@@ -1255,6 +1261,97 @@ def create_app(connection_factory=None, imap_client_factory=None) -> Flask:
             return jsonify(error="sender group not found"), 404
         return jsonify(deleted=group_id)
 
+    # ── onboarding: the people whose mail matters most (D78, D79) ───────────────
+
+    @app.post("/onboarding/people")
+    def onboarding_people():
+        """Set the Tier 1 groups from the onboarding Ask step, in one call.
+
+        Body: `{"leadership": [...], "family": [...]}`. For each group whose list is
+        non-empty after normalization, the group's pattern set is REPLACED with the
+        submitted one (Ask prefills current members, so replace is what the user
+        sees), with the seeded placeholder dropped. A group whose list is empty or
+        absent is left unchanged — an empty pattern set is invalid (DG3), so this
+        step cannot remove everyone; Settings can.
+
+        All-or-nothing: if any entry fails validation, nothing is written and every
+        rejected entry is named. Both groups are written in one transaction. If any
+        messages are already stored they are reclassified, because mail is
+        classified once at ingest and would otherwise keep its old tier (D79).
+
+        `status` says what happened: "unchanged" (empty request), "saved" (200),
+        or, with 207 because the groups ARE saved, "saved_not_retiered" (reclassify
+        raised) or "saved_partially_retiered" (some messages failed to re-tier).
+        """
+        body = request.get_json(silent=True)
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            return jsonify(error="body must be a JSON object"), 400
+        unknown = sorted(set(body) - set(ONBOARDING_GROUPS))
+        if unknown:
+            return jsonify(error=f"unknown fields: {unknown}; expected "
+                                 f"{list(ONBOARDING_GROUPS)}"), 400
+
+        submitted: dict = {}
+        invalid: list = []
+        for name in ONBOARDING_GROUPS:
+            raw = body.get(name)
+            if raw is None:
+                continue
+            if not isinstance(raw, list) or any(not isinstance(x, str) for x in raw):
+                return jsonify(error=f"{name} must be a list of strings"), 400
+            patterns, errors = normalize_patterns(raw)
+            invalid.extend({"group": name, **e} for e in errors)
+            patterns = [p for p in patterns if p.lower() != PLACEHOLDER_PATTERN]
+            if patterns:
+                submitted[name] = patterns
+        if invalid:
+            return jsonify(error=invalid[0]["error"], invalid=invalid), 400
+        if not submitted:
+            return jsonify(written=False, status="unchanged", groups={},
+                           reclassified=None)
+
+        c = conn()
+        repo = RulesRepo(c)
+        by_name = {g["group_name"]: g for g in repo.all_sender_groups()}
+        missing = sorted(n for n in submitted if n not in by_name)
+        if missing:
+            return jsonify(error=f"sender group not found: {missing}"), 409
+        repo.replace_sender_group_patterns(
+            {by_name[n]["id"]: pats for n, pats in submitted.items()})
+
+        groups = {n: repo.get_sender_group(by_name[n]["id"])["patterns"]
+                  for n in submitted}
+
+        # The groups are COMMITTED at this point. A reclassify failure must not
+        # surface as a bare 500, which a client reads as "nothing was saved": it
+        # returns 207 with `status` naming what happened, so the UI can say the
+        # people were saved and point to "Reclassify all" in Settings.
+        if not c.execute("SELECT EXISTS (SELECT 1 FROM messages)").fetchone()[0]:
+            return jsonify(written=True, status="saved", groups=groups,
+                           reclassified=None)
+        from classification.reclassify import reclassify_all
+        try:
+            reclassified = reclassify_all(c)
+        except Exception as exc:                 # noqa: BLE001 — reported, not fatal
+            log.exception("onboarding: groups saved, reclassify failed")
+            return jsonify(
+                written=True, status="saved_not_retiered", groups=groups,
+                reclassified=None,
+                error=("Saved, but stored mail was not re-tiered "
+                       f"({type(exc).__name__}). Run Reclassify all in Settings."),
+            ), 207
+        if reclassified.get("errors"):
+            return jsonify(
+                written=True, status="saved_partially_retiered", groups=groups,
+                reclassified=reclassified,
+                error=(f"Saved, but {reclassified['errors']} stored message(s) were "
+                       "not re-tiered. Run Reclassify all in Settings."),
+            ), 207
+        return jsonify(written=True, status="saved", groups=groups,
+                       reclassified=reclassified)
+
     # ── threads (spec §4.1.2 "view full conversation") ──────────────────────────
 
     @app.get("/threads/<path:thread_id>")
@@ -1554,6 +1651,9 @@ def _validate_sender_group(body: dict, *, require_all: bool) -> "str | None":
     one-element list, so an older client isn't broken mid-alpha — but a body
     carrying BOTH with conflicting content is rejected rather than silently
     resolved in the server's favour (the E12 lesson: name the conflict).
+
+    It also NORMALIZES the body's patterns in place (D80–D82): callers that pass
+    validation hand the repo the normalized form.
     """
     if require_all:
         # Either shape satisfies the pattern requirement.
@@ -1563,26 +1663,40 @@ def _validate_sender_group(body: dict, *, require_all: bool) -> "str | None":
         if "patterns" not in body and "email_pattern" not in body:
             return "missing required fields: ['patterns'] (or the legacy 'email_pattern')"
 
+    # D80/D81: every pattern is normalized (a bare domain becomes `@domain`) and
+    # validated HERE, and the body is rewritten in place with the normalized form,
+    # so the repo stores — and the response echoes — what will actually match.
+    # Comparisons below run on normalized values, so `example.com` and
+    # `@example.com` are the same pattern rather than a conflict.
     if "patterns" in body:
         raw = body["patterns"]
         if not isinstance(raw, list):
             return "patterns must be a list of non-empty strings"
         if any(not isinstance(p, str) for p in raw):
             return "patterns must be a list of non-empty strings"
-        cleaned = [p.strip() for p in raw if p.strip()]
+        cleaned, errors = normalize_patterns(raw)
+        if errors:
+            return errors[0]["error"]
         # DG3: "Empty set invalid." A group with no patterns has no members, so it
         # can never match — a silent no-op group is worse than a rejected payload.
         if not cleaned:
             return "patterns must contain at least one non-empty pattern"
+        body["patterns"] = cleaned
         if "email_pattern" in body:
-            legacy = str(body["email_pattern"]).strip()
-            if legacy and legacy not in cleaned:
+            legacy = normalize_pattern(str(body["email_pattern"]))
+            if legacy and legacy.lower() not in {p.lower() for p in cleaned}:
                 return ("conflicting patterns: email_pattern is not in patterns; "
                         "send one or the other")
+            body["email_pattern"] = legacy
 
     if "email_pattern" in body and "patterns" not in body:
-        if not str(body["email_pattern"]).strip():
+        legacy = normalize_pattern(str(body["email_pattern"]))
+        if not legacy:
             return "email_pattern must be non-empty"
+        err = pattern_error(legacy)
+        if err:
+            return err
+        body["email_pattern"] = legacy
 
     if "urgency_floor" in body and body["urgency_floor"] not in VALID_TIERS:
         return f"invalid urgency_floor; must be one of {sorted(VALID_TIERS)}"

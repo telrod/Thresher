@@ -1151,6 +1151,31 @@ class RulesRepo:
             raise
         return self.get_sender_group(group_id)
 
+    def replace_sender_group_patterns(self, sets: dict) -> None:
+        """Replace the pattern sets of several groups in ONE transaction (D78).
+
+        `sets` maps group_id → the complete new pattern list. Either every group
+        changes or none does: onboarding writes leadership and family together,
+        and a half-applied pair would be a state the user never asked for.
+        Patterns are written as given; callers normalize and validate first.
+        """
+        try:
+            self.conn.execute("BEGIN")
+            for group_id, patterns in sets.items():
+                self.conn.execute(
+                    "UPDATE sender_groups SET email_pattern = ? WHERE id = ?",
+                    (patterns[0] if patterns else "", group_id))
+                self.conn.execute(
+                    "DELETE FROM sender_group_patterns WHERE group_id = ?", (group_id,))
+                self.conn.executemany(
+                    "INSERT INTO sender_group_patterns (group_id, pattern) VALUES (?, ?)",
+                    [(group_id, p) for p in patterns],
+                )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+
     def delete_sender_group(self, group_id: int) -> bool:
         if self.get_sender_group(group_id) is None:
             return False
