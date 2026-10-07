@@ -57,6 +57,7 @@ _ALLOWLIST = {
         "pbz.gbzryebq.guerfure.cvcryvar": 1, "pbz.gbzryebq.guerfure.ncv": 1,
         "pbz.gbzryebq.guerfure.": 1, "pbz.gbzryebq.Guerfure": 4},
     "scripts/launchagent.sh": {"pbz.gbzryebq.guerfure": 1},
+    "scripts/phase3-reset-test-user.sh": {"pbz.gbzryebq.Guerfure": 1},
     "docs/workorders/migration-prep-batch-3-workorder.md": {
         "pbz.gbzryebq.Guerfure": 1, "pbz.gbzryebq": 1},
 }

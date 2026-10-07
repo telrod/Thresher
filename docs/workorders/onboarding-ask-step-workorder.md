@@ -177,26 +177,29 @@ A view-model test proves the state is right. It does not prove the step is reach
 
 ## Phase 3 — Human verification (the maintainer runs this, not Claude Code)
 
-**Setup:**
-- Use a separate macOS user account, with the daily-driver app quit. Both instances use port 8765.
-- Run the app built by `scripts/build.sh`. The bundle carries only `seed.example.sql`.
-- The daily mail account is safe to connect in the test user. Phase 1's write-back report: the only mailbox write Thresher can make is setting or clearing `\Seen`, behind two gates — a per-account preference that is off by default, and a per-request opt-in the app never sends. Polling selects the mailbox read-only and fetches with `BODY.PEEK[]`. Nothing moves, deletes or expunges mail.
+Only what no test can reach: that clicks and the keyboard get to the step, that real mail lands in Tier 1, and that the words read right on screen. Normalization, the `gmail.com` rule, prefill, and all six states rendering legibly in light and dark are covered by the suites.
 
-**Reset (run in the test user only, never in the daily account), with the app quit:**
-1. Delete `~/Library/Application Support/thresher`.
-2. Remove the `thresher` Keychain items: run `security delete-generic-password -s thresher` repeatedly until it reports that no item was found.
-3. Delete the tutorial flag: `defaults delete <bundle-id> onboarding.tutorialSeen`, where `<bundle-id>` is the Release `PRODUCT_BUNDLE_IDENTIFIER` in `frontend/Thresher.xcodeproj/project.pbxproj`.
+`<repo>` is the checkout. The test user can read it in place.
 
-**Steps:**
-1. Fresh onboarding. The ask step appears after Welcome and before Connect.
-2. Enter one address you receive mail from, then connect. After the first fetch, mail from that address shows as Tier 1.
-3. Reset the test user (above), then run onboarding again, skipping the step. The skip message appears, the main list loads, and Tier 1 is empty, as expected.
-4. Keyboard-only pass through the step.
-5. Enter your work domain bare. It displays as `@yourdomain` after saving, and mail from a colleague you didn't list individually reaches Tier 1.
-6. Enter `gmail.com`. It is refused with a readable message. A full Gmail address is accepted.
-7. In your daily account, confirm the daily-driver app and database are unchanged.
+**Daily account, before switching users:**
+1. Quit the daily app. Both instances use port 8765, and a running daily app would change the database fingerprinted next.
+2. `scripts/db-fingerprint.py > ~/thresher-fingerprint.txt`
+3. `scripts/build.sh` → `build/Thresher.app`. The bundle carries only `seed.example.sql`.
 
-**Push gate:** held until all seven pass.
+**Test user:**
+1. `bash <repo>/scripts/phase3-reset-test-user.sh`. It refuses in the daily account and while any Thresher is running.
+2. `open <repo>/build/Thresher.app`. ☐ Clicking through Welcome with the mouse reaches the Ask step.
+3. From here on, use the keyboard only (Tab, Return, Escape). Enter `gmail.com` under Family and save. ☐ The refusal reads right, next to the entry.
+4. Remove it, then enter one address you receive mail from. Save, then connect your account. This is safe: Thresher only ever sets or clears `\Seen`, and only behind an opt-in the app never sends. ☐ The step can be finished without the mouse.
+5. ☐ After the first fetch (about 30 s), mail from that address shows in Tier 1.
+6. Quit the app, run `bash <repo>/scripts/phase3-reset-test-user.sh` again, and switch macOS to Dark. Relaunch the app. ☐ The Ask step reads clearly in dark mode.
+7. Choose Skip. ☐ The skip warning reads right. Confirm it and connect your account. ☐ After the first fetch, the main list loads with nothing in Tier 1.
+8. Quit the app and log out of the test user.
+
+**Daily account, before relaunching the daily app:**
+1. `scripts/db-fingerprint.py | diff - ~/thresher-fingerprint.txt && echo unchanged`. ☐ It prints `unchanged`. If it doesn't, stop, and don't relaunch the daily app.
+
+**Push gate:** held until every ☐ passes.
 
 ---
 

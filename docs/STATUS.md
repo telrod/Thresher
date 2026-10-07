@@ -51,7 +51,9 @@ finishes onboarding can get Tier 1 mail. Today a fresh install cannot (see
 
 ## What's next
 
-Phase 3 of the onboarding workorder: the maintainer runs the Ask step by hand
-on a separate macOS user — a fresh onboarding that reaches Tier 1, a skip, a
-keyboard-only pass, a bare domain, and a refused consumer domain. The push is
-held until all seven steps pass.
+Phase 3 of the onboarding workorder: the maintainer checks by hand, on a
+separate macOS user, what no test can reach — mouse and keyboard reach the Ask
+step, real mail from an entered address lands in Tier 1 after a real fetch, the
+refusal and skip messages read right on screen, and the step reads clearly in
+dark mode. The daily database is fingerprinted before and after
+(`scripts/db-fingerprint.py`). The push is held until every check passes.
