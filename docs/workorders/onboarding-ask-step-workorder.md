@@ -101,6 +101,10 @@ Findings this revision depends on:
 
 Onboarding also runs when an account is connected but the tutorial flag is unset (for example after the flag was deleted). In that case the poller is already running while Ask saves, so mail in a pass that's already under way keeps the old groups, as in decision 3. This is not handled. Recovery: "Reclassify all" in Settings → Rules. Listed as an open item in `STATUS.md`.
 
+### Known limit: the Tier 1 copy assumes the shipped configuration
+
+The Ask step says mail from these people "always lands in Tier 1", and that until someone is added "nothing reaches Tier 1". Both are true for the shipped rule set: a rule can only make a tier more urgent, the group floor is applied after every rule, and both groups ship with a floor of Tier 1. They can be false for a user who raised a group's tier floor in Settings › Sender groups, or added their own Tier 1 rule in Settings › Classification rules. The step does not check either. Listed as an open item in `STATUS.md`.
+
 ### Implementation
 
 - `POST /onboarding/people` as in decision 4. Group membership is read from `sender_group_patterns`, falling back to `email_pattern` for a group with no pattern rows, the same way the engine reads it.
@@ -176,7 +180,7 @@ A view-model test proves the state is right. It does not prove the step is reach
 **Setup:**
 - Use a separate macOS user account, with the daily-driver app quit. Both instances use port 8765.
 - Run the app built by `scripts/build.sh`. The bundle carries only `seed.example.sql`.
-- If Phase 1 reports that Thresher writes anything back to the mail server, connect a secondary mail account here rather than the daily one.
+- The daily mail account is safe to connect in the test user. Phase 1's write-back report: the only mailbox write Thresher can make is setting or clearing `\Seen`, behind two gates — a per-account preference that is off by default, and a per-request opt-in the app never sends. Polling selects the mailbox read-only and fetches with `BODY.PEEK[]`. Nothing moves, deletes or expunges mail.
 
 **Reset (run in the test user only, never in the daily account), with the app quit:**
 1. Delete `~/Library/Application Support/thresher`.

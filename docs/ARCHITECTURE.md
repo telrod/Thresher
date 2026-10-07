@@ -337,7 +337,7 @@ cd backend && python3 -m pytest tests/ -q                    # 479 tests, ~22s
 
 xcodebuild -project frontend/Thresher.xcodeproj \
   -scheme Thresher -destination 'platform=macOS' \
-  -only-testing:ThresherTests test                           # 254 tests, ~76s
+  -only-testing:ThresherTests test                           # 273 tests, ~92s
 ```
 
 ⚠️ **Do not run the two suites concurrently.** The frontend suite drives a real

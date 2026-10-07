@@ -39,7 +39,7 @@ cd backend && python3 -m pytest tests/ -q                   # 479 tests, ~22s
 
 xcodebuild -project frontend/Thresher.xcodeproj \
   -scheme Thresher -destination 'platform=macOS' \
-  -only-testing:ThresherTests test                          # 254 tests, ~76s
+  -only-testing:ThresherTests test                          # 274 tests, ~92s
 ```
 
 **Check for an `Executed N tests` line before believing a red result.** A wedged
@@ -72,6 +72,11 @@ Two further traps when asserting on a rendered window:
   `List` rows expose empty labels.
 - **`bitmapImageRepForCachingDisplay` is premultiplied.** Divide by alpha before
   comparing colours, or you are measuring alpha rather than hue.
+- **In dark mode a hosted render loses its text.** Primary text draws white onto a
+  transparent bitmap, so a PNG shows only coloured text and borders — and two
+  such renders still differ byte-for-byte. Set `window.appearance` to `.aqua`,
+  give the root an opaque background, and assert dark-ink pixels exist, not just
+  that renders differ (`AskPeopleStepTests`).
 
 **A view-model test proves the state is right. It cannot prove a click reaches
 the state, or that the result is legible on screen.** This has now hidden a

@@ -68,6 +68,7 @@
 		TE1400000000000000000FE1 /* BuildProvenanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000FE3 /* BuildProvenanceTests.swift */; };
 		TE1400000000000000000FF1 /* ChipRowClippingThresholdTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000FF3 /* ChipRowClippingThresholdTests.swift */; };
 		TE1400000000000000001001 /* SettingsHealthRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000001003 /* SettingsHealthRenderTests.swift */; };
+		TE1400000000000000002001 /* AskPeopleStepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000002003 /* AskPeopleStepTests.swift */; };
 		TE1400000000000000000F62 /* RetrievalWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000F60 /* RetrievalWindowTests.swift */; };
 		TE1400000000000000000F42 /* PollIntervalSettingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000F40 /* PollIntervalSettingTests.swift */; };
 		TE1400000000000000000F22 /* AccountHealthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000F20 /* AccountHealthTests.swift */; };
@@ -79,6 +80,7 @@
 		0B1400000000000000000022 /* NotificationsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1400000000000000000021 /* NotificationsSection.swift */; };
 		0B1400000000000000000032 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1400000000000000000031 /* OnboardingViewModel.swift */; };
 		0B1400000000000000000042 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1400000000000000000041 /* OnboardingView.swift */; };
+		0B14000000000000000000F2 /* AskPeopleStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B14000000000000000000F1 /* AskPeopleStep.swift */; };
 		0B1400000000000000000072 /* RuleEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1400000000000000000071 /* RuleEditorView.swift */; };
 		0B1400000000000000000082 /* SenderGroupsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1400000000000000000081 /* SenderGroupsViewModel.swift */; };
 		0B1400000000000000000092 /* SenderGroupsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1400000000000000000091 /* SenderGroupsSection.swift */; };
@@ -153,6 +155,7 @@
 		TE1400000000000000000FE3 /* BuildProvenanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildProvenanceTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000000FF3 /* ChipRowClippingThresholdTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipRowClippingThresholdTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000001003 /* SettingsHealthRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsHealthRenderTests.swift; sourceTree = "<group>"; };
+		TE1400000000000000002003 /* AskPeopleStepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPeopleStepTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000000F60 /* RetrievalWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrievalWindowTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000000F40 /* PollIntervalSettingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollIntervalSettingTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000000F20 /* AccountHealthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHealthTests.swift; sourceTree = "<group>"; };
@@ -166,6 +169,7 @@
 		0B1400000000000000000021 /* NotificationsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSection.swift; sourceTree = "<group>"; };
 		0B1400000000000000000031 /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
 		0B1400000000000000000041 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		0B14000000000000000000F1 /* AskPeopleStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPeopleStep.swift; sourceTree = "<group>"; };
 		0B1400000000000000000071 /* RuleEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleEditorView.swift; sourceTree = "<group>"; };
 		0B1400000000000000000081 /* SenderGroupsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenderGroupsViewModel.swift; sourceTree = "<group>"; };
 		0B1400000000000000000091 /* SenderGroupsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SenderGroupsSection.swift; sourceTree = "<group>"; };
@@ -258,6 +262,7 @@
 				TE1400000000000000000FE3 /* BuildProvenanceTests.swift */,
 				TE1400000000000000000FF3 /* ChipRowClippingThresholdTests.swift */,
 				TE1400000000000000001003 /* SettingsHealthRenderTests.swift */,
+				TE1400000000000000002003 /* AskPeopleStepTests.swift */,
 				TE1400000000000000000F60 /* RetrievalWindowTests.swift */,
 				TE1400000000000000000F40 /* PollIntervalSettingTests.swift */,
 				TE1400000000000000000F20 /* AccountHealthTests.swift */,
@@ -342,6 +347,7 @@
 		0B1400000000000000000051 /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
+				0B14000000000000000000F1 /* AskPeopleStep.swift */,
 				0B1400000000000000000041 /* OnboardingView.swift */,
 				0B1400000000000000000031 /* OnboardingViewModel.swift */,
 			);
@@ -622,6 +628,7 @@
 				0B1400000000000000000022 /* NotificationsSection.swift in Sources */,
 				0B1400000000000000000032 /* OnboardingViewModel.swift in Sources */,
 				0B1400000000000000000042 /* OnboardingView.swift in Sources */,
+				0B14000000000000000000F2 /* AskPeopleStep.swift in Sources */,
 				0B1400000000000000000072 /* RuleEditorView.swift in Sources */,
 				0B1400000000000000000082 /* SenderGroupsViewModel.swift in Sources */,
 				0B1400000000000000000092 /* SenderGroupsSection.swift in Sources */,
@@ -660,6 +667,7 @@
 				TE1400000000000000000FE1 /* BuildProvenanceTests.swift in Sources */,
 				TE1400000000000000000FF1 /* ChipRowClippingThresholdTests.swift in Sources */,
 				TE1400000000000000001001 /* SettingsHealthRenderTests.swift in Sources */,
+				TE1400000000000000002001 /* AskPeopleStepTests.swift in Sources */,
 				TE1400000000000000000F62 /* RetrievalWindowTests.swift in Sources */,
 				TE1400000000000000000F42 /* PollIntervalSettingTests.swift in Sources */,
 				TE1400000000000000000F22 /* AccountHealthTests.swift in Sources */,

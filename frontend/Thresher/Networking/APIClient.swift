@@ -219,9 +219,27 @@ protocol SettingsAPI: Sendable {
     /// mailbox is actually being polled. Same endpoint the message-list banner
     /// uses — one source, so two surfaces cannot disagree.
     func accountHealth() async throws -> AccountHealthReport
+
+    // ── Onboarding Ask step (D78) ─────────────────────────────────────────────
+    /// `POST /onboarding/people`. Each list REPLACES that group's members; an
+    /// empty list leaves the group unchanged. A 400 (an entry failed validation,
+    /// nothing written) throws `OnboardingPeopleRejection`, naming each entry.
+    /// 200 and 207 both mean the groups were saved; `status` says whether stored
+    /// mail was re-tiered.
+    func saveOnboardingPeople(leadership: [String], family: [String]) async throws
+        -> OnboardingPeopleResponse
 }
 
 extension SettingsAPI {
+    /// Default: unavailable, by throwing — so the many fakes that never reach
+    /// the Ask step need not implement it, and a fake cannot pretend a save
+    /// succeeded. Same reasoning as `accountHealth` below.
+    func saveOnboardingPeople(leadership: [String], family: [String]) async throws
+        -> OnboardingPeopleResponse {
+        throw APIError.http(status: 501,
+                            body: "saveOnboardingPeople not implemented by this client")
+    }
+
     /// Default: report nothing, by THROWING rather than returning a synthetic
     /// healthy report. Same reasoning as the MessageAPI default — a fake that
     /// silently claimed every account was fine could make a health test pass
@@ -447,6 +465,25 @@ final class APIClient: MessageAPI, SettingsAPI {
         try await post(ReclassifyResult.self,
                        path: "/messages/\(Self.escape(id))/reclassify",
                        body: [String: String]())
+    }
+
+    func saveOnboardingPeople(leadership: [String], family: [String]) async throws
+        -> OnboardingPeopleResponse {
+        let body = ["leadership": leadership, "family": family]
+        do {
+            return try await send(OnboardingPeopleResponse.self, method: "POST",
+                                  path: "/onboarding/people", body: body)
+        } catch APIError.http(let status, let text) where status == 400 {
+            // The validation shape: `{error, invalid: [{group, entry, error}]}`.
+            // Anything else at 400 (a malformed body) is rethrown as-is.
+            if let data = text?.data(using: .utf8),
+               let rejection = try? JSONDecoder().decode(OnboardingPeopleRejection.self,
+                                                         from: data),
+               !rejection.invalid.isEmpty {
+                throw rejection
+            }
+            throw APIError.http(status: status, body: text)
+        }
     }
 
     func reclassifyAll() async throws -> ReclassifySummary {

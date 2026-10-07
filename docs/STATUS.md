@@ -18,8 +18,8 @@ finishes onboarding can get Tier 1 mail. Today a fresh install cannot (see
 | --- | --- |
 | 0 — Investigation | Done |
 | 1 — Backend: `POST /onboarding/people`, pattern normalization and validation (D78–D82) | Done |
-| 2 — UI: the Ask step | Next |
-| 3 — Human verification on a separate macOS user | Not started |
+| 2 — UI: the Ask step | Done |
+| 3 — Human verification on a separate macOS user | Next |
 
 ## Open items
 
@@ -37,6 +37,10 @@ finishes onboarding can get Tier 1 mail. Today a fresh install cannot (see
   account is connected but the tutorial flag is unset. The poller is then
   already running while Ask saves, so mail in a pass already under way keeps the
   old groups. Recovery: "Reclassify all" in Settings → Rules.
+- **The Ask step's Tier 1 copy assumes the shipped configuration (known
+  limit).** "Always lands in Tier 1" and "nothing reaches Tier 1" are true for
+  the shipped rules and group floors. They can be false for a user who raised a
+  group's tier floor or added their own Tier 1 rule in Settings.
 
 ## Resolved
 
@@ -47,6 +51,7 @@ finishes onboarding can get Tier 1 mail. Today a fresh install cannot (see
 
 ## What's next
 
-Phase 2 of the onboarding workorder: the Ask step itself — placement before
-Connect, prefill, inline validation errors, the skip confirmation, and handling
-of every status `POST /onboarding/people` returns.
+Phase 3 of the onboarding workorder: the maintainer runs the Ask step by hand
+on a separate macOS user — a fresh onboarding that reaches Tier 1, a skip, a
+keyboard-only pass, a bare domain, and a refused consumer domain. The push is
+held until all seven steps pass.

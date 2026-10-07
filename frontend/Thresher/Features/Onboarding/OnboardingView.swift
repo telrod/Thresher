@@ -10,6 +10,8 @@
 //
 //  Steps (§2):
 //   1. Welcome + brief tutorial  (static, no API; gated on the has-seen flag)
+//   1a. Ask: who matters most    (AskPeopleStep — D75: BEFORE Connect, so Tier 1
+//                                 membership is in place before the first fetch)
 //   2. Connect a Gmail account   (AccountConnectView + App-Password help, §1.5)
 //   3. Initial preferences       (NotificationsSection — reused, §1.2)
 //   4. Notification permission   (STUB / FLAGGED pending §1.6 / OI-ON1 — we do NOT
@@ -40,6 +42,11 @@ struct OnboardingView: View {
     /// the onboarding step now makes the real request, because there's a consumer.
     @State private var notifications: NotificationManager
     @State private var requestingPermission = false
+    /// The Ask step's state, kept here so Back into Ask shows what was entered.
+    @State private var ask: AskPeopleModel
+    /// True once an account is connected DURING this run — not seeded from
+    /// accounts that already existed. D77 disables Back into Ask after it.
+    @State private var connectedDuringRun = false
 
     init(api: SettingsAPI = APIClient(),
          model: OnboardingViewModel? = nil,
@@ -49,12 +56,13 @@ struct OnboardingView: View {
         self.onFinished = onFinished
         _model = State(initialValue: model ?? OnboardingViewModel(api: api))
         _notifications = State(initialValue: notifications ?? NotificationManager())
+        _ask = State(initialValue: AskPeopleModel(api: api))
     }
 
     /// Ordered steps. The tutorial step is skipped up front if already seen (§1.4)
-    /// — a returning zero-account user goes straight to Connect.
+    /// — a returning user starts at Ask (D76), not Connect.
     enum Step: Int, CaseIterable {
-        case welcome, connect, preferences, notificationPermission, done
+        case welcome, ask, connect, preferences, notificationPermission, done
     }
 
     var body: some View {
@@ -71,11 +79,13 @@ struct OnboardingView: View {
         .task {
             await model.refreshAccounts()
             connectedThisRun = model.accounts
-            // Honor the has-seen flag (§1.4): skip the tutorial if already shown.
-            if model.hasSeenTutorial, step == .welcome {
-                step = .connect
+            // Honor the has-seen flag (§1.4): skip the tutorial if already shown,
+            // landing on Ask rather than Connect (D76).
+            if step == .welcome {
+                step = OnboardingFlow.initialStep(hasSeenTutorial: model.hasSeenTutorial)
             }
         }
+        .task { await ask.load() }
     }
 
     // ── Step content ──────────────────────────────────────────────────────────
@@ -84,6 +94,7 @@ struct OnboardingView: View {
     private var content: some View {
         switch step {
         case .welcome:               welcome
+        case .ask:                   AskPeopleView(model: ask)
         case .connect:               connect
         case .preferences:           preferences
         case .notificationPermission: notificationPermission
@@ -162,6 +173,7 @@ struct OnboardingView: View {
                 // implies connected on a failed verify. On success we record the
                 // account inline so the user sees it before advancing.
                 AccountConnectView(api: api) { email in
+                    connectedDuringRun = true
                     if !connectedThisRun.contains(email) { connectedThisRun.append(email) }
                     Task { await model.refreshAccounts() }
                 }
@@ -264,25 +276,62 @@ struct OnboardingView: View {
             if step != .welcome && step != .done {
                 Button("Back") { goBack() }
                     .buttonStyle(.bordered)
+                    .disabled(previousStep == nil)
             }
-            Spacer()
-            // OI-ON3: every step is skippable now. On Connect, Skip is "connect
-            // later" — it exits to Done → Message List (which renders its own
-            // no-account empty state) so a first-run user can look around before
-            // committing an App Password, then connect from Settings.
-            if canSkipCurrentStep {
-                Button(skipLabel) { skip() }
-                    .buttonStyle(.borderless)
+            if step == .ask {
+                askFooter
+            } else {
+                standardFooter
             }
-            Button(primaryLabel) { advance() }
-                .buttonStyle(.borderedProminent)
-                .disabled(!canAdvance)
         }
+    }
+
+    /// The Ask step's buttons. Return continues and Escape skips, so the step
+    /// can be completed with Tab, Return and Escape alone. While the skip
+    /// confirmation shows, Return confirms the skip and Escape goes back.
+    @ViewBuilder
+    private var askFooter: some View {
+        Spacer()
+        if ask.phase == .confirmingSkip {
+            Button("Go back") { ask.cancelSkip() }
+                .buttonStyle(.borderless)
+                .keyboardShortcut(.cancelAction)
+            Button("Skip anyway") { if ask.skip() == .advance { goNext() } }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+        } else {
+            Button("Skip") { if ask.skip() == .advance { goNext() } }
+                .buttonStyle(.borderless)
+                .keyboardShortcut(.cancelAction)
+            Button("Continue") {
+                Task { if await ask.primary() == .advance { goNext() } }
+            }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+            .disabled(!ask.canSave)
+        }
+    }
+
+    @ViewBuilder
+    private var standardFooter: some View {
+        Spacer()
+        // OI-ON3: every step is skippable now. On Connect, Skip is "connect
+        // later" — it exits to Done → Message List (which renders its own
+        // no-account empty state) so a first-run user can look around before
+        // committing an App Password, then connect from Settings.
+        if canSkipCurrentStep {
+            Button(skipLabel) { skip() }
+                .buttonStyle(.borderless)
+        }
+        Button(primaryLabel) { advance() }
+            .buttonStyle(.borderedProminent)
+            .disabled(!canAdvance)
     }
 
     private var primaryLabel: String {
         switch step {
         case .welcome:               return "Get started"
+        case .ask:                   return "Continue"
         case .connect:               return "Continue"
         case .preferences:           return "Continue"
         case .notificationPermission: return "Continue"
@@ -337,11 +386,15 @@ struct OnboardingView: View {
         if let next = Step(rawValue: step.rawValue + 1) { step = next }
     }
 
+    /// Where Back goes, or nil when it is unavailable: never into the tutorial
+    /// once it has been seen, and never into Ask once an account was connected
+    /// in this run (D77). See `OnboardingFlow.previous`.
+    private var previousStep: Step? {
+        OnboardingFlow.previous(of: step, hasSeenTutorial: model.hasSeenTutorial,
+                                connectedThisRun: connectedDuringRun)
+    }
+
     private func goBack() {
-        // Never step back into the tutorial once it's been marked seen — Back from
-        // Connect returns to Welcome only if we actually showed it this run.
-        guard let prev = Step(rawValue: step.rawValue - 1) else { return }
-        if prev == .welcome && model.hasSeenTutorial { return }
-        step = prev
+        if let prev = previousStep { step = prev }
     }
 }

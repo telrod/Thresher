@@ -106,7 +106,7 @@ struct SenderGroupEditorView: View {
                 } header: {
                     Text("Patterns")
                 } footer: {
-                    Text("A sender matching ANY of these is in the group. Use an exact address, a glob (*@example.com), or a domain (@example.com).")
+                    Text("A sender matching ANY of these is in the group. Use an exact address, a domain (example.com or @example.com — a bare domain is stored as @example.com), or a glob with * before the @ (*@example.com).")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
