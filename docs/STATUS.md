@@ -9,17 +9,18 @@ closes an item, and that change is reviewed like any other diff.
 
 ## Current status
 
-The onboarding Ask step is in progress
-([workorder](workorders/onboarding-ask-step-workorder.md)). Goal: a stranger who
-finishes onboarding can get Tier 1 mail. Today a fresh install cannot (see
-`CLAUDE.md`, "A fresh install cannot produce a Tier 1").
+The onboarding Ask step is done (2026-10-06,
+[workorder](workorders/onboarding-ask-step-workorder.md)). A stranger who
+finishes onboarding can now get Tier 1 mail by naming the people who matter
+most. A fresh install that skips the step still cannot (see `CLAUDE.md`, "A
+fresh install cannot produce a Tier 1").
 
 | Phase | State |
 | --- | --- |
 | 0 — Investigation | Done |
 | 1 — Backend: `POST /onboarding/people`, pattern normalization and validation (D78–D82) | Done |
 | 2 — UI: the Ask step | Done |
-| 3 — Human verification on a separate macOS user | Next |
+| 3 — Human verification on a separate macOS user | Done 2026-10-06: all eight checks passed |
 
 ## Open items
 
@@ -51,9 +52,6 @@ finishes onboarding can get Tier 1 mail. Today a fresh install cannot (see
 
 ## What's next
 
-Phase 3 of the onboarding workorder: the maintainer checks by hand, on a
-separate macOS user, what no test can reach — mouse and keyboard reach the Ask
-step, real mail from an entered address lands in Tier 1 after a real fetch, the
-refusal and skip messages read right on screen, and the step reads clearly in
-dark mode. The daily database is fingerprinted before and after
-(`scripts/db-fingerprint.py`). The push is held until every check passes.
+**OI38 — header matching.** Add a `header` field to the rule engine so rules can
+match on headers, starting with `List-Unsubscribe`, the most reliable bulk-mail
+signal and one the classifier cannot reach today.

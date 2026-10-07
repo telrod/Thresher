@@ -1,6 +1,6 @@
 # Workorder — Onboarding "ask" step (minimal)
 
-**Status:** Revised after Phase 0, for the maintainer's review
+**Status:** Done 2026-10-06. Phase 3 passed on a separate macOS user.
 **Goal:** A stranger who installs Thresher and finishes onboarding can get Tier 1 mail. Today they cannot.
 
 ---
@@ -175,7 +175,7 @@ A view-model test proves the state is right. It does not prove the step is reach
 
 ---
 
-## Phase 3 — Human verification (the maintainer runs this, not Claude Code)
+## Phase 3 — Human verification (the maintainer runs this, not Claude Code) — passed 2026-10-06
 
 Only what no test can reach: that clicks and the keyboard get to the step, that real mail lands in Tier 1, and that the words read right on screen. Normalization, the `gmail.com` rule, prefill, and all six states rendering legibly in light and dark are covered by the suites.
 
@@ -188,18 +188,18 @@ Only what no test can reach: that clicks and the keyboard get to the step, that 
 
 **Test user:**
 1. `bash <repo>/scripts/phase3-reset-test-user.sh`. It refuses in the daily account and while any Thresher is running.
-2. `open <repo>/build/Thresher.app`. ☐ Clicking through Welcome with the mouse reaches the Ask step.
-3. From here on, use the keyboard only (Tab, Return, Escape). Enter `gmail.com` under Family and save. ☐ The refusal reads right, next to the entry.
-4. Remove it, then enter one address you receive mail from. Save, then connect your account. This is safe: Thresher only ever sets or clears `\Seen`, and only behind an opt-in the app never sends. ☐ The step can be finished without the mouse.
-5. ☐ After the first fetch (about 30 s), mail from that address shows in Tier 1.
-6. Quit the app, run `bash <repo>/scripts/phase3-reset-test-user.sh` again, and switch macOS to Dark. Relaunch the app. ☐ The Ask step reads clearly in dark mode.
-7. Choose Skip. ☐ The skip warning reads right. Confirm it and connect your account. ☐ After the first fetch, the main list loads with nothing in Tier 1.
+2. `open <repo>/build/Thresher.app`. ☑ Clicking through Welcome with the mouse reaches the Ask step.
+3. From here on, use the keyboard only (Tab, Return, Escape). Enter `gmail.com` under Family and save. ☑ The refusal reads right, next to the entry.
+4. Remove it, then enter one address you receive mail from. Save, then connect your account. This is safe: Thresher only ever sets or clears `\Seen`, and only behind an opt-in the app never sends. ☑ The step can be finished without the mouse.
+5. ☑ After the first fetch (about 30 s), mail from that address shows in Tier 1.
+6. Quit the app, run `bash <repo>/scripts/phase3-reset-test-user.sh` again, and switch macOS to Dark. Relaunch the app. ☑ The Ask step reads clearly in dark mode.
+7. Choose Skip. ☑ The skip warning reads right. Confirm it and connect your account. ☑ After the first fetch, the main list loads with nothing in Tier 1.
 8. Quit the app and log out of the test user.
 
 **Daily account, before relaunching the daily app:**
-1. `scripts/db-fingerprint.py | diff - ~/thresher-fingerprint.txt && echo unchanged`. ☐ It prints `unchanged`. If it doesn't, stop, and don't relaunch the daily app.
+1. `scripts/db-fingerprint.py | diff - ~/thresher-fingerprint.txt && echo unchanged`. ☑ It prints `unchanged`. If it doesn't, stop, and don't relaunch the daily app.
 
-**Push gate:** held until every ☐ passes.
+**Push gate:** passed 2026-10-06. The maintainer ran all eight checks and every one passed.
 
 ---
 
@@ -214,8 +214,8 @@ Rule: **no real addresses, names, or subjects ever.** Usage findings get abstrac
 
 ## Completion criteria
 
-- All Phase 1 tests are green, including every self-test.
-- Phase 3 passes on a separate macOS user.
-- `STATUS.md` exists and lists the deferred items above.
-- Decisions 1–8 and the tutorial-flag known limit are recorded in `DECISIONS.md` with their rationale.
-- The inert-pattern counts from the maintainer's database are reported (counts only), and the migration question is answered. **Done 2026-10-04:** 9 patterns, 0 rejected, 0 inert; no migration needed.
+- [x] All Phase 1 tests are green, including every self-test.
+- [x] Phase 3 passes on a separate macOS user.
+- [x] `STATUS.md` exists and lists the deferred items above.
+- [x] Decisions 1–8 and the tutorial-flag known limit are recorded in `DECISIONS.md` with their rationale.
+- [x] The inert-pattern counts from the maintainer's database are reported (counts only), and the migration question is answered. **Done 2026-10-04:** 9 patterns, 0 rejected, 0 inert; no migration needed.
