@@ -30,7 +30,7 @@ So a stranger's first experience is a list with no Tier 1, and focus mode, which
 - The T4→T3 default change.
 - Group edits in Settings not raising the "rules changed" staleness hint (new open item; see Phase 0 finding 3).
 - A `THRESHER_HOME` isolation mechanism (see Phase 0 finding 4). Phase 3 uses a separate macOS user instead.
-- The tutorial-flag race (known limit; see Phase 1). Recovery: "Reclassify all" in Settings → Rules.
+- The tutorial-flag race (known limit; see Phase 1). Recovery: "Reclassify all mail" in Settings › Classification rules.
 
 ---
 
@@ -99,7 +99,7 @@ Findings this revision depends on:
 
 ### Known limit: the tutorial-flag race
 
-Onboarding also runs when an account is connected but the tutorial flag is unset (for example after the flag was deleted). In that case the poller is already running while Ask saves, so mail in a pass that's already under way keeps the old groups, as in decision 3. This is not handled. Recovery: "Reclassify all" in Settings → Rules. Listed as an open item in `STATUS.md`.
+Onboarding also runs when an account is connected but the tutorial flag is unset (for example after the flag was deleted). In that case the poller is already running while Ask saves, so mail in a pass that's already under way keeps the old groups, as in decision 3. This is not handled. Recovery: "Reclassify all mail" in Settings › Classification rules. Listed as an open item in `STATUS.md`.
 
 ### Known limit: the Tier 1 copy assumes the shipped configuration
 

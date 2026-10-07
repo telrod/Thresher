@@ -36,7 +36,7 @@ finishes onboarding can get Tier 1 mail. Today a fresh install cannot (see
 - **The tutorial-flag race (known limit, D77).** Onboarding also runs when an
   account is connected but the tutorial flag is unset. The poller is then
   already running while Ask saves, so mail in a pass already under way keeps the
-  old groups. Recovery: "Reclassify all" in Settings → Rules.
+  old groups. Recovery: "Reclassify all mail" in Settings › Classification rules.
 - **The Ask step's Tier 1 copy assumes the shipped configuration (known
   limit).** "Always lands in Tier 1" and "nothing reaches Tier 1" are true for
   the shipped rules and group floors. They can be false for a user who raised a
