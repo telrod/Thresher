@@ -383,11 +383,15 @@ unreachable. This is why a fresh install classifies real automated mail poorly:
 the seeded rules fall through and it lands at Tier 4. Adding a `header` field is
 the single highest-value change available to the classifier.
 
-**A fresh install cannot produce a Tier 1.** Both Tier 1 rules target sender
-groups that ship with placeholder members. Measured against a 150-message
-generated corpus: 0 at T1, 15 at T2, 21 at T3, 70 at T4, 44 at T5. The
-"Try with sample data" and *ask* onboarding steps that would fix this are
-deferred.
+**Tier 1 depends on the onboarding "Who matters most?" step.** Both Tier 1
+rules target sender groups (`leadership`, `family`) that ship with placeholder
+members. The onboarding step between Welcome and Connect asks for the people whose
+mail matters most and writes them into those groups through
+`POST /onboarding/people`, which normalizes and validates each entry (D78–D82).
+**If the user skips that step, nothing can reach Tier 1** until they add people
+in Settings › Sender groups. Measured against a 150-message generated corpus
+with no one added: 0 at T1, 15 at T2, 21 at T3, 70 at T4, 44 at T5. The
+"Try with sample data" mode is still deferred (`docs/IDEAS.md` §3).
 
 **Gmail only, app password only, alpha quality.** There is no prebuilt binary,
 nothing is signed or notarized, and the Apple Silicon build is untested.

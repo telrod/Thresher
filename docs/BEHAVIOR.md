@@ -200,8 +200,10 @@ promise is surfacing urgent mail. Catch-up reaches the seeded Tier 2 rules
 which fire on subject text and therefore work on day one. Focus becomes the right
 default once your sender groups are populated and Tier 1 means something.
 
-**What this means for you:** until you add people to a sender group, **nothing
-can reach Tier 1.** That is a property of a fresh install, not a fault.
+**What this means for you:** setup now starts by asking **who matters most**,
+and the people you name go into those groups. If you skip that step, **nothing
+can reach Tier 1** until you add people in Settings › Sender groups. That is a
+property of an unconfigured install, not a fault.
 
 ---
 

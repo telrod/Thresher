@@ -194,8 +194,8 @@ The remaining work is the UI, the entry and exit paths, and the guard rails.
   real onboarding. No "switch back", because that is where pressure to mix the
   two comes from.
 - **Say what the sample data cannot show.** The corpus is classified with sender
-  groups populated; a real fresh install cannot reach Tier 1 until the user adds
-  members. A demo that quietly implies otherwise would oversell the thing this
+  groups populated; a real install reaches Tier 1 only after the user names
+  people, in the onboarding "Who matters most?" step or in Settings. A demo that quietly implies otherwise would oversell the thing this
   repository is careful to state plainly everywhere else.
 - Whether demo mode should fire notifications is **undecided**. It demonstrates
   the core feature, but banners from fake mail during an evaluation could as
