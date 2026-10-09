@@ -24,7 +24,7 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Recorded so every run states what it was verified on.
       - name: Toolchain
@@ -33,27 +33,30 @@ jobs:
           uname -m
           xcode-select -p
           xcodebuild -version
-          /usr/bin/python3 --version
+          /usr/bin/python3 -c 'import sys, sqlite3; print("python", sys.version.split()[0], "sqlite", sqlite3.sqlite_version)'
 
       - name: Build (scripts/build.sh)
         run: scripts/build.sh
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
+      # The suite runs on /usr/bin/python3, the interpreter the bundled app
+      # runs on (D68), not a newer one. A newer Python hid a crash on 3.9 that
+      # only shipped users would have hit.
       - name: Install backend test dependencies
-        run: python -m pip install --disable-pip-version-check flask pytest
+        run: |
+          /usr/bin/python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --disable-pip-version-check flask pytest
 
       - name: Backend suite
         working-directory: backend
-        run: python -m pytest tests/ -q -rs --junitxml="$RUNNER_TEMP/backend.xml"
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" -c 'import sys; assert sys.version_info[:2] == (3, 9), sys.version'
+          "$RUNNER_TEMP/venv/bin/python" -m pytest tests/ -q -rs --junitxml="$RUNNER_TEMP/backend.xml"
 
       # A skipped test is a test that did not run. The suite reaches 0 skipped
       # on a stock Mac, so a skip here means a guard silently stood down.
       - name: Require zero skipped
         run: |
-          python - "$RUNNER_TEMP/backend.xml" <<'EOF'
+          /usr/bin/python3 - "$RUNNER_TEMP/backend.xml" <<'EOF'
           import sys, xml.etree.ElementTree as ET
           root = ET.parse(sys.argv[1]).getroot()
           suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))

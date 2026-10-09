@@ -30,12 +30,15 @@ makes both compete for the same cores and causes flaky failures.
 ### Backend
 
 ```
-cd backend && python3 -m pytest tests/ -q -rs
+/usr/bin/python3 -m venv .venv
+.venv/bin/python -m pip install flask pytest
+cd backend && ../.venv/bin/python -m pytest tests/ -q -rs
 ```
 
-You need `flask` and `pytest` installed for the interpreter you run it with.
-The suite expects **0 skipped**: a skip means a guard did not run. CI fails on
-any skip.
+Run it on `/usr/bin/python3` (3.9 on macOS 14), as CI does, because that is
+the interpreter the app ships with. A newer Python can pass tests that the
+shipped app would fail. The suite expects **0 skipped**: a skip means a guard
+did not run. CI fails on any skip.
 
 ### Frontend
 

@@ -33,8 +33,8 @@ def db(tmp_path, monkeypatch):
     return path
 
 
-def _fingerprint(db: Path) -> str:
-    r = subprocess.run([sys.executable, str(_SCRIPT), "--db", str(db)],
+def _fingerprint(db: Path, script: Path = _SCRIPT) -> str:
+    r = subprocess.run([sys.executable, str(script), "--db", str(db)],
                        capture_output=True, text=True, check=True)
     assert r.stderr == ""
     assert re.fullmatch(r"[0-9a-f]{64}\n", r.stdout), f"prints more than a hash: {r.stdout!r}"
@@ -48,8 +48,14 @@ def _files(db: Path) -> dict:
 def _stored(db: Path) -> dict:
     """The database and its WAL: what holds content. The -shm is excluded: it
     is SQLite's shared-memory index, which every WAL reader writes, read-only
-    connections included, and it holds no rows."""
-    return {k: v for k, v in _files(db).items() if not k.endswith("-shm")}
+    connections included, and it holds no rows.
+
+    An empty WAL is dropped too, because it holds no rows either. A read-only
+    open creates one when the last writer's close deleted it, which stock
+    SQLite does and Apple's build does not. Keeping it made the no-write test
+    fail on CI's interpreter while the script wrote nothing."""
+    return {k: v for k, v in _files(db).items()
+            if not k.endswith("-shm") and not (k.endswith("-wal") and v == b"")}
 
 
 def test_database_is_in_wal_mode(db):
@@ -105,3 +111,20 @@ def test_fingerprinting_writes_no_stored_content(db):
     before = _stored(db)
     _fingerprint(db)
     assert _stored(db) == before
+
+
+def test_the_no_write_check_catches_a_script_that_writes(db, tmp_path):
+    """Verify the check above can fail, rather than trusting that it would."""
+    source = _SCRIPT.read_text()
+    opener = 'sqlite3.connect(f"{args.db.resolve().as_uri()}?mode=ro", uri=True)'
+    assert opener in source, "the script's open changed; update this sabotage"
+    writer = tmp_path / "db-fingerprint-writes.py"
+    writer.write_text(source.replace(opener, (
+        'sqlite3.connect(args.db)\n'
+        '    conn.execute("INSERT INTO preferences (key, value, updated_at) '
+        "VALUES ('fp-sabotage', 'x', '2026-01-01')\")\n"
+        '    conn.commit()')))
+
+    before = _stored(db)
+    _fingerprint(db, writer)
+    assert _stored(db) != before
