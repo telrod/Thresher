@@ -55,12 +55,36 @@ def parse_sender(from_header: Optional[str]) -> Tuple[Optional[str], str]:
     return (name or None), addr.lower().strip()
 
 
+def _raw_header(msg: EmailMessage, name: str) -> Optional[str]:
+    """The first `name` header exactly as it arrived, before the policy parses it.
+
+    Reading it through `msg.get()` builds a typed header object, and on Python
+    3.9 (the /usr/bin/python3 the bundled app runs) building a DateHeader from
+    an unparseable value raises TypeError inside the stdlib. 3.10 fixed that,
+    so the crash only reaches users of the shipped app.
+    """
+    for key, value in msg.raw_items():
+        if key.lower() == name.lower():
+            return value
+    return None
+
+
+def _safe_items(msg: EmailMessage):
+    """`msg.items()`, except a header the policy cannot parse yields its raw
+    text instead of raising (the same 3.9 DateHeader crash as above)."""
+    for key, value in msg.raw_items():
+        try:
+            yield key, msg.policy.header_fetch_parse(key, value)
+        except (TypeError, ValueError):
+            yield key, value
+
+
 def parse_received_at(msg: EmailMessage) -> str:
     """
     Return the message's Date as an ISO-8601 string (UTC).
     Falls back to 'now' if the header is missing or unparseable (P1: still store it).
     """
-    raw = msg.get("Date")
+    raw = _raw_header(msg, "Date")
     if raw:
         try:
             dt = parsedate_to_datetime(raw)
@@ -120,7 +144,7 @@ def _strip(s: Optional[str]) -> Optional[str]:
 def _collect_headers(msg: EmailMessage) -> dict:
     """Flatten all headers into a dict (decoded). Duplicates are joined with ', '."""
     headers: dict = {}
-    for key, value in msg.items():
+    for key, value in _safe_items(msg):
         decoded = _decode_str(value)
         if key in headers:
             headers[key] = f"{headers[key]}, {decoded}"

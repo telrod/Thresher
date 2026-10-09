@@ -76,9 +76,16 @@ def test_parse_received_at_falls_back_when_date_missing():
 
 
 def test_parse_malformed_date_does_not_raise():
-    raw = _build_raw(date="not a real date")
+    # Raw bytes, not _build_raw(): on Python 3.9 EmailMessage itself raises when
+    # handed this Date, so building it that way never reached the parser, and
+    # the parser crashed on the shipped interpreter while this test was green
+    # on newer ones.
+    raw = (b"From: a@example.com\r\nSubject: x\r\nDate: not a real date\r\n"
+           b"Message-ID: <m@example.com>\r\nContent-Type: text/plain\r\n\r\nhi\r\n")
     msg = parse_message(raw, message_id="acct:5", account="a@b.com")
     assert msg.received_at  # degraded to now, not an exception
+    assert msg.raw_headers["Date"] == "not a real date"
+    assert msg.subject == "x"
 
 
 def test_thread_id_uses_references_root():
