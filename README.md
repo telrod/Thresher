@@ -1,5 +1,7 @@
 # Thresher
 
+[![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+
 **A local-first macOS email triage tool that routes every message to an urgency
 tier and a category, instead of the read/unread binary.**
 

@@ -1,0 +1,67 @@
+# CI on Apple Silicon (macos-14 hosted runners are arm64).
+#
+# Builds the distributable app exactly as a stranger would (scripts/build.sh),
+# then runs the backend suite. The two run in sequence, never together, per
+# CLAUDE.md.
+#
+# NOT included: the frontend XCTest suite. It drives real windows and a real
+# run loop, and several tests are timing sensitive; it has not been shown to
+# pass on a hosted runner. Add it only after it has.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Recorded so every run states what it was verified on.
+      - name: Toolchain
+        run: |
+          sw_vers
+          uname -m
+          xcode-select -p
+          xcodebuild -version
+          /usr/bin/python3 --version
+
+      - name: Build (scripts/build.sh)
+        run: scripts/build.sh
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend test dependencies
+        run: python -m pip install --disable-pip-version-check flask pytest
+
+      - name: Backend suite
+        working-directory: backend
+        run: python -m pytest tests/ -q -rs --junitxml="$RUNNER_TEMP/backend.xml"
+
+      # A skipped test is a test that did not run. The suite reaches 0 skipped
+      # on a stock Mac, so a skip here means a guard silently stood down.
+      - name: Require zero skipped
+        run: |
+          python - "$RUNNER_TEMP/backend.xml" <<'EOF'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
+          tests = sum(int(s.get("tests", 0)) for s in suites)
+          skipped = sum(int(s.get("skipped", 0)) for s in suites)
+          print(f"{tests} tests, {skipped} skipped")
+          if tests == 0:
+              sys.exit("no tests were recorded; the report is empty")
+          if skipped:
+              sys.exit(f"{skipped} test(s) skipped; expected 0")
+          EOF
