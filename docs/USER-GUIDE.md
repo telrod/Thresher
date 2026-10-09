@@ -35,13 +35,37 @@ account with an app password.
 
 ## 2. Connecting a mailbox
 
-### 2.1 You do not need to turn IMAP on
+### 2.1 First: who matters most
+
+After the welcome screen, and before it connects to anything, Thresher asks
+**"Who matters most?"** — the people whose mail should always land in
+**Tier 1**, at the top of your list. There are two lists:
+
+- **Work** — people whose mail you never want to miss at work. These go into
+  the `leadership` sender group.
+- **Family** — these go into the `family` sender group.
+
+Enter one address per row. You can also enter a whole domain (`example.com`),
+which is stored as `@example.com` and matches everyone at that domain. When you
+choose **Continue**, any entry that is not a usable address or domain is flagged
+on its own row, and the step stays open until you fix or remove it.
+
+If you go through this step again after mail has already been fetched, that mail
+is not re-sorted automatically. To apply your changes to it, use
+**Settings → Classification rules → Reclassify all mail**.
+
+**This step is the only thing that lets a new install produce Tier 1 mail**
+(see §4). You can choose **Skip**, and Thresher will ask you to confirm: without
+anyone here, nothing reaches Tier 1 and Focus mode stays silent. You can add
+people at any time later in **Settings → Sender groups**.
+
+### 2.2 You do not need to turn IMAP on
 
 Gmail no longer has an IMAP enable/disable setting. **IMAP is always on, and
 there is no switch to find.** If you go looking for one in Gmail's settings you
 will not find it, and nothing is wrong.
 
-### 2.2 Getting a Gmail app password
+### 2.3 Getting a Gmail app password
 
 Thresher signs in with an **app password**, not your normal Google password and
 not OAuth.
@@ -63,9 +87,9 @@ not OAuth.
   is enrolled in Advanced Protection there is no way to make this work; Thresher
   cannot connect to that account at all until OAuth support lands.
 
-### 2.3 Connecting
+### 2.4 Connecting
 
-On first launch Thresher walks you through it. Enter the address and the app
+After the who-matters step, Thresher walks you through connecting. Enter the address and the app
 password; Thresher stores the password in the **macOS Keychain** and never writes
 it to a file.
 
@@ -106,7 +130,7 @@ If a message is in the wrong tier, that panel tells you which rule to change.
 
 ---
 
-## 4. ⚠️ A fresh install cannot produce a Tier 1
+## 4. ⚠️ Without real people in your groups, nothing reaches Tier 1
 
 **This is the most important thing to know as a new user, and it is the
 difference between Thresher looking broken and looking unconfigured.**
@@ -116,8 +140,11 @@ Both shipped Tier 1 rules match on **sender group membership** — "leadership" 
 (`boss@example.com`), because Thresher cannot know who matters to you. Until you
 put real addresses in them, **no message can ever be classified Tier 1.**
 
+The "Who matters most?" step during setup (§2.1) exists to fill them. If you
+skipped it, this section describes your install.
+
 This is measured, not theoretical. Running a 150-message sample mailbox through a
-freshly seeded install produces:
+freshly seeded install with no one added produces:
 
 | Tier | Messages |
 | --- | --- |
@@ -127,8 +154,10 @@ freshly seeded install produces:
 | 4 | 70 |
 | 5 | 44 |
 
-So your first task after connecting is **Settings → Sender groups**: add the
-handful of people whose mail you must not miss. Everything else is tuning.
+If you skipped the setup step, your first task after connecting is **Settings →
+Sender groups**: add the handful of people whose mail you must not miss. Then run
+**Settings → Classification rules → Reclassify all mail** so that mail already
+fetched is re-sorted. Everything else is tuning.
 
 Thresher does still do useful work before you configure anything — the seeded
 subject rules catch verification codes, password resets, security alerts and
@@ -223,8 +252,8 @@ Bulk actions are capped at 5,000 messages.
 classified:
 
 - **Focus** — only Tier 1 raises a notification.
-- **Catch-up** — Tier 1 and Tier 2. *This is the default*, because on a fresh
-  install Tier 1 is unreachable (see §4).
+- **Catch-up** — Tier 1 and Tier 2. *This is the default*, because until you name
+  the people who matter, Tier 1 is unreachable (see §4).
 
 **Tier 1 always surfaces, in any mode.** No mode suppresses it.
 
@@ -289,7 +318,7 @@ test while not being polled at all.
 
 ### Authentication suddenly fails
 
-Almost always a revoked app password — see §2.2. Changing your Google password
+Almost always a revoked app password — see §2.3. Changing your Google password
 revokes them all. Generate a new one and re-enter it in Settings → Email accounts.
 
 ### Logs

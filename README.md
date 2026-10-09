@@ -79,10 +79,16 @@ check for mail, quiet hours, and the daily digest. Modes change what is
 
 ### Set it up
 
+On first launch Thresher asks **who matters most** before it connects to
+anything: the people at work and at home whose mail should always land in
+Tier 1. You can name individual addresses or a whole domain. This step is what
+lets a new install produce Tier 1 mail at all. You can skip it and add people
+later in Settings › Sender groups, but until you do, nothing reaches Tier 1.
+
 Connecting a mailbox takes an address and a **Gmail app password** — not your
-normal password, and not OAuth. On first launch Thresher walks you through it,
-then asks how far back to retrieve, showing roughly how many messages each
-choice would bring in.
+normal password, and not OAuth. Thresher walks you through it, then asks how
+far back to retrieve, showing roughly how many messages each choice would
+bring in.
 
 That retrieval choice is **one-way**: you can narrow what gets imported at setup
 but not widen it later, so pick wider than you think you need. Three months is
@@ -140,13 +146,16 @@ The app starts and stops its own backend, so there is nothing else to run.
   by Google as automated — that happened to the account made for this project's
   screenshots, one day after signup. See
   [`docs/IDEAS.md`](docs/IDEAS.md) for the deferred "Try with sample data" mode.
-- **⚠️ A fresh install classifies very little until you configure sender
-  groups.** Both shipped Tier 1 rules match on group membership, and the groups
-  ship with placeholder members — so **nothing can reach Tier 1 until you add
-  real addresses**. Measured on a 150-message generated corpus against a freshly
-  seeded install: **0 at Tier 1**, 15 at Tier 2, 21 at Tier 3, 70 at Tier 4, 44
-  at Tier 5. The screenshots above were taken after configuring groups, which is
-  the intended use — but it means the first run looks quieter than the pictures.
+- **⚠️ Skip the "who matters most" step and nothing reaches Tier 1.** Both
+  shipped Tier 1 rules match on group membership, and the groups ship with
+  placeholder members — so **nothing can reach Tier 1 until you add real
+  addresses**, either during onboarding or later in Settings. Measured on a
+  150-message generated corpus against a freshly seeded install with no one
+  added: **0 at Tier 1**, 15 at Tier 2, 21 at Tier 3, 70 at Tier 4, 44 at
+  Tier 5. The screenshots above were taken after configuring groups.
+- **Mail fetched before you add people is not re-sorted automatically.** Run
+  Settings › Classification rules › Reclassify all mail to apply new group
+  members to what is already stored.
 - **Rules cannot match mail headers.** `List-Unsubscribe`, the most reliable
   bulk-mail signal available, is therefore unreachable, which is why real
   newsletters need sender or subject rules to be caught.
@@ -161,7 +170,8 @@ The app starts and stops its own backend, so there is nothing else to run.
 | --- | --- |
 | [**User Guide**](docs/USER-GUIDE.md) | Setup, the Gmail app-password walkthrough, what the tiers mean, rules and groups, triage, troubleshooting |
 | [**Architecture**](docs/ARCHITECTURE.md) | For contributors: the three processes, the classification engine, migrations, running the tests, and the honest limitations |
-| [**DECISIONS.md**](DECISIONS.md) | **75 numbered decisions with their reasoning**, written as the project ran — including the ones that were later reversed |
+| [**DECISIONS.md**](DECISIONS.md) | **Over 80 numbered decisions with their reasoning**, written as the project ran — including the ones that were later reversed |
+| [`docs/STATUS.md`](docs/STATUS.md) | What is open, what was just finished, and what comes next |
 | [`docs/IDEAS.md`](docs/IDEAS.md) | Features considered and consciously **not** built, with the tradeoff written down — the best place to start if you want to contribute |
 | [`constitution.md`](constitution.md) | The invariants the code is held to |
 | [`specs/original/`](specs/original/) | The original Spec Kit artifacts, and how the build diverged from them |
