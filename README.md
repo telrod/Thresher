@@ -7,9 +7,9 @@ tier and a category, instead of the read/unread binary.**
 
 *The Open view. Tier 1 sits at the top regardless of age; below it, today's mail.
 This is a generated 150-message sample corpus — 2 messages at Tier 1, 31 at
-Tier 2, 16 at Tier 3, 57 at Tier 4, 44 at Tier 5 — shown after sender groups
-were configured. See [Limitations](#limitations) for what a fresh install looks
-like before that.*
+Tier 2, 16 at Tier 3, 57 at Tier 4, 44 at Tier 5 — shown after naming the
+people who matter, as the setup step asks. See [Limitations](#limitations) for
+what you see if you skip that step.*
 
 ---
 
