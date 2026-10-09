@@ -35,10 +35,17 @@ decide whether something is in scope.
   `thresher`. By design it is not written to the database, the logs or any
   other file, and a report showing otherwise is in scope.
 - **A local HTTP API** that the app uses to talk to its backend. It listens on
-  `127.0.0.1:8765` only and has **no authentication**, so any process running
-  as your user can read your stored mail through it. This is a known property
-  of the current design, not a new finding. Reports showing it is reachable
-  beyond loopback, or from a web page in a browser, are in scope.
+  `127.0.0.1:8765` only. To keep web pages in your browser out, it refuses any
+  request whose `Host` header is not `127.0.0.1`, `localhost` or `[::1]`
+  (this blocks DNS rebinding), and any POST, PUT or PATCH that is not
+  `application/json` (this forces a CORS preflight, which fails because the API
+  sends no CORS headers). See D83 in `DECISIONS.md`.
+
+  It has **no authentication**, so any process running as your user can still
+  read your stored mail through it. This is a known property of the current
+  design, not a new finding. Reports showing the API is reachable beyond
+  loopback, or from a web page in a browser despite these checks, are in
+  scope.
 
 In scope:
 

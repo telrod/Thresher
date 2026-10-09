@@ -1420,7 +1420,7 @@ def test_reclassify_PRESERVES_TRIAGE_STATE_D52_invariant_1(client, db_path):
         "value": "probe@d52.example", "set_tier": 1, "set_category": "work",
         "enabled": True}).status_code == 201
 
-    r = client.post("/messages/acct:d52/reclassify")
+    r = client.post("/messages/acct:d52/reclassify", json={})
     assert r.status_code == 200
     body = r.get_json()
 
@@ -1445,7 +1445,7 @@ def test_reclassify_is_SILENT_no_notifications_D52_invariant_2(client, db_path):
         "value": "loud@d52.example", "set_tier": 1, "set_category": "work",
         "enabled": True}).status_code == 201
 
-    assert client.post("/messages/acct:d52silent/reclassify").get_json()["urgency_tier"] == 1
+    assert client.post("/messages/acct:d52silent/reclassify", json={}).get_json()["urgency_tier"] == 1
 
     after = c.execute("SELECT COUNT(*) FROM notification_log").fetchone()[0]
     assert after == before, "reclassification wrote a notification — invariant 2 broken"
@@ -1459,7 +1459,7 @@ def test_reclassify_OVERWRITES_with_a_dated_audit_never_versions_D52_invariant_3
     versions."""
     c = _seed_message(db_path, msg_id="acct:d52audit", sender="audit@d52.example")
 
-    body = client.post("/messages/acct:d52audit/reclassify").get_json()
+    body = client.post("/messages/acct:d52audit/reclassify", json={}).get_json()
     assert body["reclassified_at"], "no reclassified_at stamp"
 
     rows = c.execute("SELECT COUNT(*) FROM classifications WHERE message_id=?",
@@ -1514,7 +1514,7 @@ def test_rules_changed_since_counts_only_KNOWN_changes_D52(client, db_path):
         "rules_changed_since"] == 1
 
     # Reclassifying resets it: the classification is now newer than the edit.
-    client.post("/messages/acct:d52stale/reclassify")
+    client.post("/messages/acct:d52stale/reclassify", json={})
     assert client.get("/messages/acct:d52stale/explain").get_json()[
         "rules_changed_since"] == 0
     c.close()
@@ -1560,7 +1560,7 @@ def test_reclassify_a_message_with_NO_classification_row_D52(client, db_path):
                "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00"))
     c.commit()
 
-    r = client.post("/messages/acct:d52none/reclassify")
+    r = client.post("/messages/acct:d52none/reclassify", json={})
     assert r.status_code == 200
     assert r.get_json()["triage_state"] == "new"
     assert c.execute("SELECT COUNT(*) FROM classifications WHERE message_id=?",
@@ -1569,7 +1569,7 @@ def test_reclassify_a_message_with_NO_classification_row_D52(client, db_path):
 
 
 def test_reclassify_unknown_message_404s_D52(client):
-    assert client.post("/messages/nope:0/reclassify").status_code == 404
+    assert client.post("/messages/nope:0/reclassify", json={}).status_code == 404
 
 
 # ── D52 part C: bulk reclassify ──────────────────────────────────────────────
@@ -1588,7 +1588,7 @@ def test_bulk_reclassify_preserves_every_triage_state_and_reports_a_summary_D52(
         "value": "d52.example", "set_tier": 1, "set_category": "work",
         "enabled": True}).status_code == 201
 
-    summary = client.post("/messages/reclassify-all").get_json()
+    summary = client.post("/messages/reclassify-all", json={}).get_json()
     assert summary["counted"] >= 2
     assert summary["changed"] >= 2
     assert summary["errors"] == 0
@@ -1774,7 +1774,7 @@ def test_bulk_reclassify_streams_and_does_not_load_every_body_D52(client, db_pat
 
     # And it still processes everything (the fix must not have narrowed the work).
     _two_account_store(db_path).close()
-    summary = client.post("/messages/reclassify-all").get_json()
+    summary = client.post("/messages/reclassify-all", json={}).get_json()
     assert summary["counted"] >= 3
     assert summary["errors"] == 0
 

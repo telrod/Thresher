@@ -67,6 +67,11 @@ VALID_TRIAGE_STATES = {"new", "acknowledged", "needs_action", "done"}
 VALID_CATEGORIES = {"work", "personal", "unknown"}      # schema allows on messages/rules: work|personal
 VALID_RULE_SET_CATEGORIES = {"work", "personal"}        # rules.set_category CHECK
 VALID_TIERS = {1, 2, 3, 4, 5}
+# The Host values the API answers to (D83): a loopback name, with or without a
+# port. Any port, because rebinding is about the name. Matched whole, so a
+# lookalike such as `localhost.example.org` is refused.
+_LOOPBACK_HOST = re.compile(r"(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?", re.IGNORECASE)
+
 VALID_RULE_FIELDS = {"sender_email", "sender_domain", "subject", "body", "sender_group"}
 VALID_RULE_OPERATORS = {"equals", "contains", "starts_with", "ends_with", "matches_group"}
 
@@ -253,6 +258,23 @@ def create_app(connection_factory=None, imap_client_factory=None) -> Flask:
         db = g.pop("db", None)
         if db is not None:
             db.close()
+
+    # D83 — a web page in the user's browser must not reach this API. Binding to
+    # loopback stops other machines, not other origins. Two checks close the gap:
+    #   - Host must be loopback. A DNS-rebound page sends its own hostname, so
+    #     this refuses it before any handler runs.
+    #   - Writes must be JSON. A cross-site form or text/plain POST needs no CORS
+    #     preflight, and `get_json(silent=True) or {}` would run the handler on
+    #     an empty body. Requiring application/json forces the preflight, which
+    #     fails because this API sends no CORS headers. DELETE is always
+    #     preflighted, so it is not listed.
+    @app.before_request
+    def _local_only():
+        if not _LOOPBACK_HOST.fullmatch(request.host):
+            return jsonify(error="forbidden host"), 403
+        if request.method in ("POST", "PUT", "PATCH") and not request.is_json:
+            return jsonify(error="expected application/json"), 415
+        return None
 
     # ── messages ──────────────────────────────────────────────────────────────
 
