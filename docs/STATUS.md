@@ -25,8 +25,17 @@ fresh install cannot produce a Tier 1").
 ## Open items
 
 - **The "propose" step:** suggest senders from fetched mail. Deferred.
-- **OI38 — header matching.** The rule engine cannot match on headers, so
-  `List-Unsubscribe` is unreachable. Deferred.
+- **OI38 — header matching** ([#1](../../../issues/1)). The rule engine cannot
+  match on headers, so `List-Unsubscribe` is unreachable. Deferred.
+- **Apple Silicon hands-on verification** ([#2](../../../issues/2)). CI builds
+  the app and passes the backend suite on arm64 (run 37875153727). Nobody has
+  used the app by hand on an Apple Silicon Mac yet.
+- **"Try with sample data" mode** ([#3](../../../issues/3)). Evaluating
+  Thresher still requires connecting a real mailbox. Design in `docs/IDEAS.md`
+  §3.
+- **Frontend suite in CI** ([#4](../../../issues/4)). CI runs the build and the
+  backend suite only, because the frontend suite has not been shown to pass on a
+  hosted runner.
 - **The T4→T3 default change.** Deferred.
 - **Group edits don't raise the staleness hint.** The "rules changed" hint
   counts only the `rules` table; `sender_groups` has no `updated_at`, so editing
@@ -52,6 +61,6 @@ fresh install cannot produce a Tier 1").
 
 ## What's next
 
-**OI38 — header matching.** Add a `header` field to the rule engine so rules can
+**OI38 — header matching** ([#1](../../../issues/1)). Add a `header` field to the rule engine so rules can
 match on headers, starting with `List-Unsubscribe`, the most reliable bulk-mail
 signal and one the classifier cannot reach today.
