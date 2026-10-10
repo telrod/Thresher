@@ -62,8 +62,11 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .frame(minWidth: 720, minHeight: 480)
         .task {
-            // No retry loop, no blocking (workorder §3.3): one attempt, and a failure
-            // is displayed rather than swallowed.
+            // No retry loop here, no blocking (workorder §3.3), and a failure is
+            // displayed rather than swallowed. The client still retries a REFUSED
+            // connect up to 3 times over ~450ms (APIClient.perform), so opened in
+            // the first half-second of a cold launch this can still read
+            // "unreachable": this window is not behind LaunchRouter's gate (OI42).
             do {
                 backendVersion = try await api.backendVersion()
                 backendUnreachable = false

@@ -42,6 +42,24 @@ fresh install cannot produce a Tier 1").
   already hidden one defect: `fromisoformat` rejected the app's `Z` timestamps,
   so native notification delivery never took over (D84). Apple may change or
   remove this interpreter. Not addressed yet.
+- **OI42 — Settings opened right after a cold launch can say "Backend
+  unreachable".** The ⌘, window is not behind the launch readiness gate. It
+  relies on the client's retry of refused GETs, which spans ~450ms; the
+  measured cold-start gap was ~490ms. Opened within about half a second of
+  launch, Settings can show "Backend unreachable" and empty panes until reopened.
+- **OI43 — when the supervisor gives up on the poller, the app does not say
+  so.** After 3 failed restarts it stops relaunching the poller, and mail and
+  alerts stop with it. The only record is a line in `supervisor.log`;
+  `hasGivenUp(on:)` is not read by any view. The user sees a warning only when
+  the account heartbeat goes stale: "hasn't checked for mail in …" in the list
+  and the dock badge, about 11 minutes after the last poll at the default
+  interval. It does not mention alerts. A poller that dies before its first poll
+  instead shows "Waiting for the first mail check", which reads as normal,
+  indefinitely. Separately, `BackendSupervisorTests` write their "gave up"
+  lines into the real `supervisor.log`, so every frontend suite run adds two
+  false entries, one "last exit 1" and one "last exit unknown" in the same
+  second. The pair at 2026-10-10T18:12:13Z matches a test run to the second;
+  every earlier pair in that log has the same signature.
 - **Group edits don't raise the staleness hint.** The "rules changed" hint
   counts only the `rules` table; `sender_groups` has no `updated_at`, so editing
   a group in Settings never tells the user that stored mail is out of date.
