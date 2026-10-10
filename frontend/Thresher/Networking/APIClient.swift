@@ -685,6 +685,20 @@ final class APIClient: MessageAPI, SettingsAPI {
         try await get(AccountHealthReport.self, path: "/health/accounts")
     }
 
+    /// One probe of `GET /health`: true iff the API answered 2xx.
+    ///
+    /// A single attempt with a short timeout and NO retry — the caller is the
+    /// readiness poll in `LaunchRouter`, which owns the cadence and the deadline.
+    /// Retrying here would hide the very signal it polls for.
+    func isHealthy() async -> Bool {
+        guard let url = URL(string: "/health", relativeTo: baseURL) else { return false }
+        var request = URLRequest(url: url, timeoutInterval: 1)
+        request.httpMethod = "GET"
+        guard let (_, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse else { return false }
+        return (200...299).contains(http.statusCode)
+    }
+
     /// Percent-encode a path segment. Message ids are the synthetic
     /// `{account}:{uid}` PK — the colon and any `@`/dots must be escaped so the
     /// id lands in one path component.
@@ -693,6 +707,35 @@ final class APIClient: MessageAPI, SettingsAPI {
     }
 
     // ── Core GET / POST ───────────────────────────────────────────────────────
+
+    /// Backoff before each retry of a GET refused at connect: three attempts in
+    /// all, ~450ms of patience. Sized to the measured cold-start gap (~490ms from
+    /// the first refused request to the API listening, 2026-10-10) for a view that
+    /// loads outside the launch gate — the Settings scene, for one.
+    static let connectRetryDelays: [Duration] = [.milliseconds(150), .milliseconds(300)]
+
+    /// Run a request, retrying a GET whose connection was refused.
+    ///
+    /// Only `cannotConnectToHost` (-1004), and only GET: a refused connect never
+    /// reached the server, so a read is safe to resend. Writes are not retried
+    /// even then — the caller sees the failure and decides. Anything else (a
+    /// timeout, an HTTP error) is surfaced on the first attempt.
+    private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        let retryable = request.httpMethod == "GET"
+        var attempt = 0
+        while true {
+            do {
+                return try await session.data(for: request)
+            } catch let error as URLError
+                        where retryable && error.code == .cannotConnectToHost
+                        && attempt < Self.connectRetryDelays.count {
+                NSLog("API: GET %@ refused (attempt %d); retrying",
+                      request.url?.path ?? "?", attempt + 1)
+                try await Task.sleep(for: Self.connectRetryDelays[attempt])
+                attempt += 1
+            }
+        }
+    }
 
     private func get<T: Decodable>(_ type: T.Type, path: String) async throws -> T {
         guard let url = URL(string: path, relativeTo: baseURL) else { throw APIError.badURL }
@@ -703,7 +746,7 @@ final class APIClient: MessageAPI, SettingsAPI {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await perform(request)
         } catch {
             throw APIError.transport(error)
         }
@@ -734,7 +777,7 @@ final class APIClient: MessageAPI, SettingsAPI {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await perform(request)
         } catch {
             throw APIError.transport(error)
         }
@@ -765,7 +808,7 @@ final class APIClient: MessageAPI, SettingsAPI {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await perform(request)
         } catch {
             throw APIError.transport(error)
         }
@@ -837,7 +880,7 @@ final class APIClient: MessageAPI, SettingsAPI {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await perform(request)
         } catch {
             throw APIError.transport(error)
         }

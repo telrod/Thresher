@@ -32,6 +32,11 @@ final class OnboardingViewModel {
     /// True once the initial `GET /accounts` has resolved (so routing waits for a
     /// real answer instead of racing on the empty default).
     private(set) var didResolveAccounts = false
+    /// True iff the most recent `GET /accounts` SUCCEEDED. Distinct from
+    /// `didResolveAccounts`, which is also true after a failure: an unreachable
+    /// backend and an empty registry both leave `accounts` empty, and only this
+    /// tells them apart (Defect B, 2026-10-10).
+    private(set) var accountsLoaded = false
 
     private let api: SettingsAPI
     private let defaults: UserDefaults
@@ -59,7 +64,11 @@ final class OnboardingViewModel {
     /// The single routing decision (§3): onboard when there are no accounts OR the
     /// tutorial has never been shown. Callers must await `refreshAccounts()` first
     /// so this reflects the real registry, not the empty default.
-    var shouldOnboard: Bool { connectNeeded || !hasSeenTutorial }
+    ///
+    /// Never true without a successful account check: a refused request used to
+    /// read as "no accounts" and sent an existing user into onboarding on every
+    /// cold start that beat the backend.
+    var shouldOnboard: Bool { accountsLoaded && (connectNeeded || !hasSeenTutorial) }
 
     // ── Load / refresh ────────────────────────────────────────────────────────
 
@@ -68,6 +77,7 @@ final class OnboardingViewModel {
         defer { isLoading = false }
         do {
             accounts = try await api.listAccounts()
+            accountsLoaded = true
             errorMessage = nil
         } catch {
             // If the host can't list accounts (e.g. account mgmt unavailable), we
@@ -75,6 +85,7 @@ final class OnboardingViewModel {
             // list on error keeps the user in the connect step rather than falsely
             // advancing them past it.
             errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            accountsLoaded = false
         }
         didResolveAccounts = true
     }
