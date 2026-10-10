@@ -184,6 +184,11 @@ mail is collected and surfaced in the app rather than interrupting you.
 ignore, at which point it's worse than none — the one message that mattered gets
 dismissed with the rest.
 
+**Who the banner comes from:** on a fresh install, alerts that arrive before
+onboarding completes are delivered by the backend and appear under **Script
+Editor**; once onboarding has granted notification permission they come from
+Thresher. (The same fallback applies whenever the app is quit, D84.)
+
 ---
 
 ## A new install starts in Catch-up, not Focus

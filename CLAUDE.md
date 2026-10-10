@@ -35,12 +35,35 @@ them flake. Run one at a time; re-run a red frontend result alone before
 believing it.
 
 ```
-cd backend && python3 -m pytest tests/ -q                   # 485 tests, ~27s
+cd backend && python3 -m pytest tests/ -q                   # 506 tests, ~25s
 
 xcodebuild -project frontend/Thresher.xcodeproj \
   -scheme Thresher -destination 'platform=macOS' \
   -only-testing:ThresherTests test                          # 274 tests, ~92s
 ```
+
+### Run the backend suite on `/usr/bin/python3` too
+
+**The shipped backend runs on `/usr/bin/python3` (3.9.6), not your `python3`.**
+A green run on a newer interpreter proves nothing about 3.9: `fromisoformat`
+accepted the app's `Z` timestamps on 3.11 and rejected every one on 3.9, so
+native notifications never worked in the shipped app (D84). CI runs 3.9; run it
+locally before believing a notification or date-handling change:
+
+```
+/usr/bin/python3 -m venv .venv39                            # once; gitignored
+.venv39/bin/python -m pip install flask pytest              # once
+cd backend && ../.venv39/bin/python -m pytest tests/ -q     # must report 3.9
+```
+
+**Keep the venv out of `backend/`.** `test_python_floor.py` imports every `.py`
+under `backend/`, so a venv there fails it with hundreds of false violations.
+
+**A timestamp the app writes must be tested in the app's format.** Swift's
+`ISO8601DateFormatter` writes UTC as a trailing `Z`; Python's `isoformat()`
+writes `+00:00`. A test that builds its input with `isoformat()` cannot catch a
+parser that rejects the real thing. The decision record is D84 and the open
+interpreter dependency is OI41 (`docs/STATUS.md`).
 
 **Check for an `Executed N tests` line before believing a red result.** A wedged
 `testmanagerd` and a genuine failure both print `** TEST FAILED **`; the harness

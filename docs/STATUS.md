@@ -37,6 +37,11 @@ fresh install cannot produce a Tier 1").
   backend suite only, because the frontend suite has not been shown to pass on a
   hosted runner.
 - **The T4→T3 default change.** Deferred.
+- **OI41 — the bundled backend depends on macOS's built-in Python.** The app
+  runs its backend on `/usr/bin/python3` (3.9.6 on Sonoma, D68). Its age has
+  already hidden one defect: `fromisoformat` rejected the app's `Z` timestamps,
+  so native notification delivery never took over (D84). Apple may change or
+  remove this interpreter. Not addressed yet.
 - **Group edits don't raise the staleness hint.** The "rules changed" hint
   counts only the `rules` table; `sender_groups` has no `updated_at`, so editing
   a group in Settings never tells the user that stored mail is out of date.

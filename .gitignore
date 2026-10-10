@@ -52,6 +52,7 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .venv/
+.venv39/
 venv/
 build/
 dist/
