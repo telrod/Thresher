@@ -55,11 +55,14 @@ fresh install cannot produce a Tier 1").
   and the dock badge, about 11 minutes after the last poll at the default
   interval. It does not mention alerts. A poller that dies before its first poll
   instead shows "Waiting for the first mail check", which reads as normal,
-  indefinitely. Separately, `BackendSupervisorTests` write their "gave up"
-  lines into the real `supervisor.log`, so every frontend suite run adds two
-  false entries, one "last exit 1" and one "last exit unknown" in the same
-  second. The pair at 2026-10-10T18:12:13Z matches a test run to the second;
-  every earlier pair in that log has the same signature.
+  indefinitely. Note when reading an existing `supervisor.log`: until
+  2026-10-10, `BackendSupervisorTests` wrote their "gave up" lines into the real
+  log, two per frontend run ("last exit 1" and "last exit unknown" in the same
+  second). The pair at 2026-10-10T18:12:13Z matches a test run to the second,
+  and every earlier pair has the same signature. The tests now log to a
+  temporary directory, guarded by a test.
+  Not explained: the test host's own `AppDelegate` wrote no `start:` line in
+  any 2026-10-10 run, even with a bundled backend and no launchd agent.
 - **Group edits don't raise the staleness hint.** The "rules changed" hint
   counts only the `rules` table; `sender_groups` has no `updated_at`, so editing
   a group in Settings never tells the user that stored mail is out of date.

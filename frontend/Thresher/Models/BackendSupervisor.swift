@@ -100,11 +100,17 @@ final class BackendSupervisor {
     /// that failed, giving up on a process. Previously these went to NSLog and
     /// produced nothing findable — searching the unified log after the D1
     /// investigation returned no entries at all.
-    static func appendToSupervisorLog(_ message: String) {
+    ///
+    /// `directory` exists for tests: a supervisor built with a fake host must
+    /// not write its give-ups into the user's real log, where every frontend
+    /// run used to add two false "gave up on poller" lines (OI43).
+    static func appendToSupervisorLog(_ message: String,
+                                      in directory: URL = LocalProcessHost.logDirectory) {
         let stamp = ISO8601DateFormatter().string(from: Date())
         let line = "\(stamp) \(message)\n"
         guard let data = line.data(using: .utf8),
-              let handle = LocalProcessHost.logHandle(for: "supervisor") else { return }
+              let handle = LocalProcessHost.logHandle(for: "supervisor", in: directory)
+        else { return }
         defer { try? handle.close() }
         handle.write(data)
     }
@@ -118,6 +124,9 @@ final class BackendSupervisor {
     private let host: BackendProcessHosting
     private let backendDirectory: URL?
     private let python: URL?
+    /// Where this supervisor's own log lines go. The real directory unless a
+    /// test says otherwise.
+    private let logDirectory: URL
 
     /// What THIS supervisor started. Only these are ever restarted or
     /// terminated — killing a backend we did not start would, on a supervised
@@ -132,8 +141,10 @@ final class BackendSupervisor {
 
     init(host: BackendProcessHosting = LocalProcessHost(),
          backendDirectory: URL? = BackendSupervisor.locateBackend(),
-         python: URL? = BackendSupervisor.locatePython()) {
+         python: URL? = BackendSupervisor.locatePython(),
+         logDirectory: URL = LocalProcessHost.logDirectory) {
         self.host = host
+        self.logDirectory = logDirectory
         self.backendDirectory = backendDirectory
         self.python = python
     }
@@ -267,7 +278,8 @@ final class BackendSupervisor {
                 Self.appendToSupervisorLog(
                     "gave up on \(id) after \(count) restarts "
                     + "(last exit \(host.lastExitStatus(id).map(String.init) ?? "unknown")) "
-                    + "— it will not be retried until the app is restarted")
+                    + "— it will not be retried until the app is restarted",
+                    in: logDirectory)
                 continue
             }
             restarts[id] = count + 1
@@ -375,8 +387,7 @@ extension LocalProcessHost {
 
     /// An append handle for `id`'s log, rotating first if it has grown too big.
     /// Returns nil rather than throwing: losing logs must never stop the backend.
-    static func logHandle(for id: String) -> FileHandle? {
-        let dir = logDirectory
+    static func logHandle(for id: String, in dir: URL = logDirectory) -> FileHandle? {
         let fm = FileManager.default
         do {
             try fm.createDirectory(at: dir, withIntermediateDirectories: true)
