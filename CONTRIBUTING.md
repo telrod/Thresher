@@ -30,10 +30,13 @@ makes both compete for the same cores and causes flaky failures.
 ### Backend
 
 ```
-/usr/bin/python3 -m venv .venv
+/usr/bin/python3 -m venv --clear .venv
 .venv/bin/python -m pip install flask pytest
 cd backend && ../.venv/bin/python -m pytest tests/ -q -rs
 ```
+
+`--clear` rebuilds an existing `.venv` so it actually uses the system 3.9
+interpreter; without it, an older `.venv` keeps whatever Python made it.
 
 Run it on `/usr/bin/python3` (3.9 on macOS 14), as CI does, because that is
 the interpreter the app ships with. A newer Python can pass tests that the

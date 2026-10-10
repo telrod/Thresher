@@ -51,10 +51,14 @@ native notifications never worked in the shipped app (D84). CI runs 3.9; run it
 locally before believing a notification or date-handling change:
 
 ```
-/usr/bin/python3 -m venv .venv39                            # once; gitignored
-.venv39/bin/python -m pip install flask pytest              # once
-cd backend && ../.venv39/bin/python -m pytest tests/ -q     # must report 3.9
+/usr/bin/python3 -m venv --clear .venv                      # same as CONTRIBUTING.md
+.venv/bin/python -m pip install flask pytest
+cd backend && ../.venv/bin/python -m pytest tests/ -q -rs   # 0 skipped
 ```
+
+**`--clear` is not optional.** Without it, running `venv` over an existing
+`.venv` keeps that venv's interpreter: a 3.12 `.venv` stayed 3.12 and reported
+green on the wrong Python. Confirm with `.venv/bin/python -V` → `3.9.6`.
 
 **Keep the venv out of `backend/`.** `test_python_floor.py` imports every `.py`
 under `backend/`, so a venv there fails it with hundreds of false violations.
@@ -104,6 +108,17 @@ Two further traps when asserting on a rendered window:
 **A view-model test proves the state is right. It cannot prove a click reaches
 the state, or that the result is legible on screen.** This has now hidden a
 shipped feature twice behind a green suite.
+
+---
+
+## Check a fixed path before generating into it
+
+**Before creating a virtualenv, build output, or any other generated directory
+at a fixed path, check whether the path already exists and what references it.
+If it exists, stop and ask.** Tools that "create" often reuse what is there
+instead: `python3 -m venv .venv` over an existing 3.12 `.venv` rewrote its
+config, kept its 3.12 interpreter, and installed packages into it — damaging
+someone's environment and producing a test run on the wrong Python, silently.
 
 ---
 
