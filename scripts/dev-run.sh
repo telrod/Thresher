@@ -45,6 +45,9 @@ for arg in "$@"; do
     esac
 done
 
+# Prefix of the launchd agents' labels (scripts/launchagent.sh).
+LAUNCHD_PREFIX="com.tomelrod.thresher."
+
 step()  { printf '\n\033[1m▶ %s\033[0m\n' "$*"; }
 ok()    { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 fail()  { printf '  \033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
@@ -105,12 +108,67 @@ BUILT_APP="$( cd "$FRONTEND_DIR" && xcodebuild -project "$SCHEME.xcodeproj" \
     | awk -F' = ' '/ BUILT_PRODUCTS_DIR = /{print $2; exit}' )/$SCHEME.app"
 [[ -d "$BUILT_APP" ]] || fail "built app not found at $BUILT_APP (run without --skip-build)"
 
+# Thresher backend processes (poller, API) not owned by launchd, one per line:
+# "<pid> <poller|API> <cwd>". Identified by working directory, because "main.py"
+# alone would match any project's: the installed bundle's backend, the repo's,
+# or any other Thresher.app's (an older build, a DerivedData copy).
+thresher_backends() {
+    local launchd_pids pid cwd role
+    launchd_pids=" $(launchctl list 2>/dev/null \
+        | awk -v p="$LAUNCHD_PREFIX" 'index($3, p) == 1 && $1 ~ /^[0-9]+$/ {print $1}' | tr '\n' ' ') "
+    for pid in $(pgrep -f 'main\.py|-m api\.server' 2>/dev/null || true); do
+        [[ "$launchd_pids" == *" $pid "* ]] && continue
+        cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+        case "$cwd" in
+            "$REPO_ROOT/backend"|*/Thresher.app/Contents/Resources/backend) ;;
+            *) continue ;;
+        esac
+        if ps -o args= -p "$pid" 2>/dev/null | grep -q 'api\.server'; then role=API; else role=poller; fi
+        echo "$pid $role $cwd"
+    done
+}
+
+# The identifier to quit by, from the build itself rather than a second copy here.
+BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$BUILT_APP/Contents/Info.plist")"
+
 # ── 3. Install ───────────────────────────────────────────────────────────────
 step "3/6  Installing to $APP_DEST"
+# QUIT, don't kill. The app stops its poller and API in applicationWillTerminate,
+# which runs on a normal quit but NOT on SIGTERM — `pkill` used to leave the old
+# build's poller running beside the new one, two pollers on one mailbox and one
+# store (2026-10-11). A `quit` Apple Event is a normal quit, and was observed
+# to need no Automation permission (no TCC check is made for it).
+# pkill is the fallback for an app that does not exit.
 if pgrep -x "$SCHEME" >/dev/null 2>&1; then
-    note "app is running — quitting it first"
-    pkill -x "$SCHEME" || true
-    for _ in $(seq 1 20); do pgrep -x "$SCHEME" >/dev/null 2>&1 || break; sleep 0.25; done
+    note "app is running — asking it to quit"
+    osascript -e 'with timeout of 10 seconds' \
+              -e "tell application id \"$BUNDLE_ID\" to quit" \
+              -e 'end timeout' >/dev/null 2>&1 || true
+    for _ in $(seq 1 60); do pgrep -x "$SCHEME" >/dev/null 2>&1 || break; sleep 0.25; done
+    if pgrep -x "$SCHEME" >/dev/null 2>&1; then
+        warn "app did not quit within 15s — falling back to pkill (its backend may be orphaned; swept below)"
+        pkill -x "$SCHEME" || true
+        for _ in $(seq 1 20); do pgrep -x "$SCHEME" >/dev/null 2>&1 || break; sleep 0.25; done
+        pgrep -x "$SCHEME" >/dev/null 2>&1 && fail "app is still running after pkill"
+    fi
+    ok "app quit"
+fi
+
+# Sweep leftovers: whatever the quit did not stop, plus orphans from older
+# builds that were killed rather than quit. SIGTERM, so each one shuts down
+# cleanly (main.py drains its queue); then confirm they are gone.
+LEFTOVER="$(thresher_backends)"
+if [[ -n "$LEFTOVER" ]]; then
+    while read -r pid role cwd; do
+        note "stopping leftover $role (pid $pid, started $(ps -o lstart= -p "$pid" | sed 's/  */ /g'), in $cwd)"
+        kill -TERM "$pid" 2>/dev/null || true
+    done <<< "$LEFTOVER"
+    for _ in $(seq 1 40); do [[ -z "$(thresher_backends)" ]] && break; sleep 0.25; done
+    STILL="$(thresher_backends)"
+    [[ -z "$STILL" ]] || fail "leftover backend processes did not stop: $(echo "$STILL" | awk '{print $1}' | tr '\n' ' ')"
+    ok "leftover backend processes stopped"
+else
+    ok "no leftover backend processes"
 fi
 # Replace, never merge: copying over a bundle leaves stale resources behind, and
 # a stale Info.plist would defeat the very check this script exists to make.
@@ -133,7 +191,7 @@ step "4/6  Restarting the backend"
 # first, match second.
 LAUNCHD_OWNED=0
 LAUNCHCTL_LIST="$(launchctl list 2>/dev/null || true)"
-if [[ "$LAUNCHCTL_LIST" == *"com.tomelrod.thresher."* ]]; then
+if [[ "$LAUNCHCTL_LIST" == *"$LAUNCHD_PREFIX"* ]]; then
     LAUNCHD_OWNED=1
     note "launchd owns the backend (D66) — restarting through it, not backend.sh"
     launchctl kickstart -k "gui/$UID/com.tomelrod.thresher.api" >/dev/null 2>&1 \
@@ -267,9 +325,51 @@ fi
 step "6/6  Launching"
 if [[ "$NO_LAUNCH" -eq 1 ]]; then
     note "skipped (--no-launch)"
+    if [[ "$LAUNCHD_OWNED" -eq 0 ]]; then
+        warn "backend.sh's backend is still running. Opening the app on top of it adds a"
+        warn "second poller (the app skips the API but starts its own). Run"
+        warn "'scripts/backend.sh stop' first, or re-run without --no-launch."
+    fi
 else
+    # D67: the app owns its backend. The backend.sh pair above existed for the
+    # stamp check; leaving it up would make the app skip the API and start a
+    # SECOND poller beside backend.sh's pipeline. Stop it, let the app start
+    # its own (the bundled backend — the one users actually run), and check that.
+    if [[ "$LAUNCHD_OWNED" -eq 0 ]]; then
+        "$REPO_ROOT/scripts/backend.sh" stop >/dev/null 2>&1 || true
+        for _ in $(seq 1 20); do
+            lsof -nP -iTCP:8765 -sTCP:LISTEN -t >/dev/null 2>&1 || break; sleep 0.25
+        done
+        note "stopped the stamp-check backend; the app starts its own (D67)"
+    fi
     open -a "$APP_DEST"
     ok "launched"
+
+    if [[ "$LAUNCHD_OWNED" -eq 0 ]]; then
+        for _ in $(seq 1 60); do
+            curl -fsS "$API_URL/health" >/dev/null 2>&1 && break
+            sleep 0.25
+        done
+        LIVE_SHA="$(curl -fsS "$API_URL/version" 2>/dev/null \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin).get("git_sha","unknown"))' \
+            2>/dev/null || echo 'unknown')"
+        [[ "$LIVE_SHA" == "$APP_SHA" ]] \
+            || fail "the app's own backend reports $LIVE_SHA, expected $APP_SHA"
+        ok "the app's own backend is up at $LIVE_SHA"
+
+        # Exactly one of each, or this run has made the duplicate it exists to prevent.
+        sleep 1
+        APPS="$(pgrep -x "$SCHEME" | grep -c . || true)"
+        BACKENDS="$(thresher_backends)"
+        POLLERS="$(printf '%s\n' "$BACKENDS" | grep -c ' poller ' || true)"
+        APIS="$(printf '%s\n' "$BACKENDS" | grep -c ' API ' || true)"
+        printf '%s\n' "$BACKENDS" | sed '/^$/d; s/^/      /'
+        if [[ "$APPS" -eq 1 && "$POLLERS" -eq 1 && "$APIS" -eq 1 ]]; then
+            ok "one app, one poller, one API"
+        else
+            fail "expected one app, one poller, one API — found $APPS app(s), $POLLERS poller(s), $APIS API(s)"
+        fi
+    fi
 fi
 
 printf '\n\033[32mReady.\033[0m App and backend both at %s\n\n' "$APP_SHA"

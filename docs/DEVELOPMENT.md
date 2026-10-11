@@ -35,7 +35,7 @@ setup.**
 | --- | --- | --- |
 | Produces | `build/Thresher.app`, then stops | An installed, running app |
 | Installs to `/Applications` | No | Yes |
-| Backend lifetime | Owned by the app (D67) | launchd agents, or `backend.sh` |
+| Backend lifetime | Owned by the app (D67) | Owned by the launched app (D86); launchd agents if installed |
 | Touches running processes | Never | Restarts them |
 | Who it is for | Anyone who wants the app | Someone changing the code |
 
@@ -89,6 +89,12 @@ scripts/dev-run.sh                 # verify → build → install → restart �
 scripts/dev-run.sh --skip-build    # fast re-verify of the stamps
 scripts/dev-run.sh --no-launch     # everything except opening the app
 ```
+
+It quits a running app normally rather than killing it, then stops any leftover
+poller or API (D86). After launching it stops the `backend.sh` pair it used for
+the stamp check, so the app starts its own bundled backend, and it fails unless
+exactly one app, one poller and one API are running. `--no-launch` leaves that
+`backend.sh` pair up; stop it before opening the app, or you get a second poller.
 
 The point of that script is not building — it is asserting that the app's
 stamp and `GET /version` **agree**. A human gate was nearly run against an app
