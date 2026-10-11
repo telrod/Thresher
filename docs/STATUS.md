@@ -64,11 +64,6 @@ fresh install cannot produce a Tier 1").
     The tests now log to a temporary directory, guarded by a test. Not
     explained: the test host's own `AppDelegate` wrote no `start:` line in any
     2026-10-10 run, even with a bundled backend and no launchd agent.
-- **OI44 — the daily digest never goes through the app.** The backend sends it
-  with osascript every time, so it shows as Script Editor even while Thresher is
-  running and owns delivery (observed 2026-10-11T00:05:55Z). The Tier 1/2 path
-  checks the app's delivery claim; `build_and_send_digest` does not. Fix: route
-  the digest through the app when the app owns delivery.
 - **OI45 — frontend test runs post real banners.** Tests that drive
   `NotificationManager.tick()` post through the real notification center in the
   test host, so a run can show a banner from the debug build's bundle ID (`….Thresher.debug`).
@@ -99,6 +94,12 @@ fresh install cannot produce a Tier 1").
   group's tier floor or added their own Tier 1 rule in Settings.
 
 ## Resolved
+
+- **OI44 — the daily digest never went through the app: closed** (2026-10-11,
+  D88). `build_and_send_digest` now checks the app's delivery claim like the
+  Tier 1/2 path. Verified on the real machine: a digest handed off at 21:48:11Z
+  was recorded by Notification Center under the app's own bundle identifier at
+  21:48:28Z, with no Script Editor record.
 
 - **Migration for existing group patterns: not needed** (2026-10-04). Validation
   applies on write only (D81). The only database that predates the change has

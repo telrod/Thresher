@@ -198,8 +198,11 @@ dismissed with the rest.
 while the app is running with notification permission. Otherwise the backend
 delivers them and they appear under **Script Editor**: when the app is quit, and
 on a fresh install until onboarding has granted permission (D84). **The daily
-digest always appears under Script Editor**, whether or not the app is running,
-because the backend always delivers it itself (OI44).
+digest follows the same rule** (D88): it appears under Thresher while the app is
+running with permission, and under Script Editor when the backend has to deliver
+it itself — the app quit, or permission not granted. It is sent once either way.
+Clicking it opens Thresher; it does not open a particular message, because it
+summarizes several.
 
 ---
 
