@@ -35,7 +35,7 @@ them flake. Run one at a time; re-run a red frontend result alone before
 believing it.
 
 ```
-cd backend && python3 -m pytest tests/ -q                   # 512 tests, ~25s
+cd backend && python3 -m pytest tests/ -q                   # 520 tests, ~30s
 
 xcodebuild -project frontend/Thresher.xcodeproj \
   -scheme Thresher -destination 'platform=macOS' \

@@ -55,12 +55,16 @@ class DigestScheduler:
         clock: callable() -> datetime (UTC, local-aware via astimezone). Injected
                for tests.
         tick_seconds: poll interval; override (small) for tests.
+        tz: the local time zone `digest_time` is expressed in. None means the
+            system's; tests pass one so they do not depend on the machine's.
     """
 
     def __init__(self, connection_factory, *, service_factory=None, clock=None,
-                 tick_seconds: float = TICK_SECONDS):
+                 tick_seconds: float = TICK_SECONDS, tz=None):
         self._connection_factory = connection_factory
-        self._service_factory = service_factory or (lambda conn: NotificationService(conn))
+        self._tz = tz
+        self._service_factory = service_factory or (
+            lambda conn: NotificationService(conn, tz=tz))
         self._clock = clock or _now
         self._tick = tick_seconds
         self._stop = threading.Event()
@@ -106,7 +110,7 @@ class DigestScheduler:
             log.warning("Invalid digest_time pref; skipping digest tick")
             return False
 
-        now_t = self._clock().astimezone().time()
+        now_t = self._clock().astimezone(self._tz).time()
         if now_t < target:
             return False  # not time yet today
 

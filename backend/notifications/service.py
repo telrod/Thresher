@@ -127,17 +127,20 @@ class NotificationService:
     needs; call notify_for_message(message_id) after a message is classified.
     """
 
-    def __init__(self, conn, *, sender=None, clock=None):
+    def __init__(self, conn, *, sender=None, clock=None, tz=None):
         """
         Args:
             conn: sqlite3 connection (its own per thread).
             sender: callable(title, subtitle, text) -> None that performs delivery.
                     Injected for tests; defaults to the osascript sender.
             clock: callable() -> datetime (UTC). Injected for tests (quiet hours).
+            tz: the local time zone `digest_time` is expressed in. None means
+                the system's, which is what the app runs with; tests pass one.
         """
         self.conn = conn
         self._send = sender or send_via_osascript
         self._clock = clock or _now
+        self._tz = tz
 
     # ── public API ───────────────────────────────────────────────────────────
 
@@ -272,17 +275,35 @@ class NotificationService:
         ).fetchall()
 
     def _digest_already_sent_today(self) -> bool:
-        """True if a 'digest' was already logged on the current calendar day."""
-        today = self._clock().date().isoformat()
-        row = self.conn.execute(
+        """True if a 'digest' was already logged on the current LOCAL day.
+
+        Local, because `digest_time` is local: the day it is "time" on must be
+        the day the guard counts. Comparing UTC dates reset the guard at UTC
+        midnight — the local evening west of Greenwich — and a scheduler already
+        past digest_time sent a second digest the same local day (D89).
+
+        `sent_at` is stored in UTC with its offset, so each recent row is
+        converted rather than compared as text. Two days back covers any offset.
+        """
+        today = self._clock().astimezone(self._tz).date()
+        rows = self.conn.execute(
             """
-            SELECT 1 FROM notification_log
-            WHERE notification_type = 'digest' AND substr(sent_at, 1, 10) = ?
-            LIMIT 1
+            SELECT sent_at FROM notification_log
+            WHERE notification_type = 'digest'
+              AND julianday(sent_at) >= julianday(?) - 2
             """,
-            (today,),
-        ).fetchone()
-        return row is not None
+            (self._clock().isoformat(),),
+        ).fetchall()
+        for r in rows:
+            try:
+                sent = datetime.fromisoformat(r["sent_at"])
+            except (TypeError, ValueError):
+                continue
+            if sent.tzinfo is None:
+                sent = sent.replace(tzinfo=timezone.utc)
+            if sent.astimezone(self._tz).date() == today:
+                return True
+        return False
 
     def _format_digest(self, rows) -> tuple:
         """
