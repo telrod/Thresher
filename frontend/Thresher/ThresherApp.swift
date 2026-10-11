@@ -124,27 +124,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// neutral loader rather than flashing the empty Message List or Onboarding.
 @MainActor
 struct RootView: View {
-    @State private var onboardModel = OnboardingViewModel()
-    /// The routing decision, LATCHED once accounts resolve: nil = undecided (still
-    /// loading), true = show onboarding to completion, false = go to the main UI.
-    ///
-    /// Why latched, not re-derived from `shouldOnboard` every render: onboarding
-    /// mutates the very signals `shouldOnboard` reads — clicking "Get started"
-    /// marks the tutorial seen, which would flip `shouldOnboard` to false and yank
-    /// the user out of the flow mid-step (they'd skip Connect / Prefs /
-    /// Notifications). Deciding once and holding it until the flow calls
-    /// `onFinished` keeps onboarding stable regardless of in-flight flag changes.
-    @State private var showOnboarding: Bool?
+    /// The routing decision, latched once resolved (see `LaunchRouter`).
+    @State private var router = LaunchRouter()
 
     var body: some View {
         Group {
-            switch showOnboarding {
-            case .none:
-                ProgressView("Loading…")
+            switch router.route {
+            case .starting:
+                ProgressView("Starting…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .some(true):
-                OnboardingView(model: onboardModel) { showOnboarding = false }
-            case .some(false):
+            case .unreachable:
+                ContentUnavailableView {
+                    Label("Can’t reach the Thresher backend", systemImage: "bolt.horizontal.circle")
+                } description: {
+                    Text("It didn’t answer in time. Its logs are in ~/Library/Application Support/thresher/logs.")
+                } actions: {
+                    Button("Retry") { Task { await router.retry() } }
+                }
+            case .onboarding:
+                OnboardingView(model: router.onboardModel) { router.finishOnboarding() }
+            case .main:
                 MainWindowView()
             }
         }
@@ -152,9 +151,8 @@ struct RootView: View {
             // Resolve routing ONCE, then latch it. OnboardingView re-fetches
             // accounts on its own .task; this initial resolve gates the first paint
             // and the latch keeps it from changing under the user.
-            if showOnboarding == nil {
-                await onboardModel.refreshAccounts()
-                showOnboarding = onboardModel.shouldOnboard
+            if router.route == .starting {
+                await router.resolve()
             }
         }
     }

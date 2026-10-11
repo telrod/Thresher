@@ -60,11 +60,53 @@ final class BackendSupervisorTests: XCTestCase {
         }
     }
 
+    /// Each test's own supervisor log. These tests drive a fake host past the
+    /// restart budget on purpose; with the default directory every frontend
+    /// run wrote two false "gave up on poller" lines into the user's real
+    /// supervisor.log — and one of them was then investigated as an outage.
+    private var logDirectory: URL!
+
+    override func setUp() {
+        super.setUp()
+        logDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BackendSupervisorTests.\(UUID().uuidString)",
+                                    isDirectory: true)
+    }
+
+    override func tearDown() {
+        try? FileManager.default.removeItem(at: logDirectory)
+        super.tearDown()
+    }
+
     private func supervisor(_ host: FakeProcessHost,
                             backend: URL? = URL(fileURLWithPath: "/tmp/backend"),
                             python: URL? = URL(fileURLWithPath: "/usr/bin/python3")
     ) -> BackendSupervisor {
-        BackendSupervisor(host: host, backendDirectory: backend, python: python)
+        BackendSupervisor(host: host, backendDirectory: backend, python: python,
+                          logDirectory: logDirectory)
+    }
+
+    func testAGiveUpInTestsLeavesTheRealSupervisorLogAlone() throws {
+        let realLog = LocalProcessHost.logDirectory
+            .appendingPathComponent("supervisor.log")
+        let before = FileManager.default.contents(atPath: realLog.path)
+
+        let host = FakeProcessHost()
+        let sup = supervisor(host)
+        try sup.start()
+        for _ in 0..<(BackendSupervisor.maxRestarts + 2) {
+            host.exits(BackendSupervisor.pollerID, status: 1)
+            sup.restartAnythingThatDied()
+        }
+        XCTAssertTrue(sup.hasGivenUp(on: BackendSupervisor.pollerID))
+
+        XCTAssertEqual(FileManager.default.contents(atPath: realLog.path), before,
+                       "a test wrote into the user's real supervisor.log")
+        // The positive half: the line went SOMEWHERE, so the assertion above
+        // is not passing merely because nothing was written at all.
+        let testLog = try String(contentsOf: logDirectory
+            .appendingPathComponent("supervisor.log"), encoding: .utf8)
+        XCTAssertTrue(testLog.contains("gave up on poller"), testLog)
     }
 
     // ── First run: the poller must survive an unconfigured start ─────────────

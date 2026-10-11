@@ -374,10 +374,17 @@ class NotificationService:
 
     def _parse_claim_instant(self, key: str):
         """Read a UTC ISO-8601 pref, or None if absent/unparseable. A parse error
-        is logged and treated as absent — never as a live claim."""
+        is logged and treated as absent — never as a live claim.
+
+        The app writes these with ISO8601DateFormatter, which renders UTC as a
+        trailing "Z". `fromisoformat` accepts "Z" only from 3.11, and the bundled
+        backend runs on /usr/bin/python3 (3.9.6), so without folding it every
+        live claim read as invalid and every alert went out via osascript (D84)."""
         raw = self._pref(key, "")
         if not raw:
             return None
+        if raw.endswith(("Z", "z")):
+            raw = raw[:-1] + "+00:00"
         try:
             value = datetime.fromisoformat(raw)
         except (ValueError, TypeError):

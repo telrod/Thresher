@@ -47,6 +47,47 @@ private final class FakeNotificationAPI: MessageAPI, @unchecked Sendable {
     }
 }
 
+/// A feed that starts empty and gains an alert when the test hands one off,
+/// the way `notification_log` gains a row when the backend defers to the app.
+/// Serves only rows above `since`, like `GET /notifications?since=`.
+private final class HandOffNotificationAPI: MessageAPI, @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [NotificationItem] = []
+    private var _fetches = 0
+    var fetches: Int { lock.withLock { _fetches } }
+
+    func handOff(_ item: NotificationItem) { lock.withLock { items.append(item) } }
+
+    func claimDelivery(forSeconds seconds: Int) async throws {}
+    func notifications(since: Int) async throws -> NotificationFeed {
+        lock.withLock {
+            _fetches += 1
+            let fresh = items.filter { $0.id > since }
+            return NotificationFeed(notifications: fresh,
+                                    cursor: fresh.map(\.id).max() ?? since)
+        }
+    }
+
+    func reclassify(id: String) async throws -> ReclassifyResult { throw APIError.badURL }
+    func reclassifyAll() async throws -> ReclassifySummary { throw APIError.badURL }
+    func listMessages() async throws -> [MessageListRow] { [] }
+    func listMessages(states: [String]?) async throws -> [MessageListRow] { [] }
+    func messageCounts() async throws -> TriageCounts { throw APIError.badURL }
+    func searchMessages(query: String) async throws -> [MessageListRow] { [] }
+    func preferences() async throws -> Preferences { throw APIError.badURL }
+    func getMessage(id: String) async throws -> MessageDetail { throw APIError.badURL }
+    func explain(id: String) async throws -> Explanation? { nil }
+    func thread(id: String) async throws -> [MessageListRow] { [] }
+    func setTriage(id: String, state: TriageState) async throws -> TriageUpdateResponse {
+        throw APIError.badURL
+    }
+}
+
+@MainActor
+private final class PostedBanners {
+    var identifiers: [String] = []
+}
+
 private func tierOneItem(id: Int) -> NotificationItem {
     NotificationItem(id: id, messageID: "acct:\(id)", notificationType: "tier1_alert",
                      sentAt: "2026-07-16T10:00:00+00:00", title: "t", text: "x")
@@ -124,6 +165,50 @@ final class RefreshCadenceTests: XCTestCase {
         XCTAssertEqual(api.claimedTTLs, [Int(NotificationManager.heartbeatSeconds)],
                        "tick must check in on the fixed cadence, not one derived "
                         + "from the poll interval.")
+    }
+
+    // ── 4. Alerts are fetched on the heartbeat, not the poll (D85) ────────────
+    //
+    // On 2026-10-11 a Tier 1 handed to the app at 13:38:41Z reached Notification
+    // Center at 13:42:36Z — 3m55s — because the app fetched alerts only once
+    // per mail poll (5 min). osascript, which it replaces, posts at once.
+
+    private func waitUntil(timeout: TimeInterval = 2,
+                           _ condition: @MainActor () -> Bool) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        return condition()
+    }
+
+    func testAnAlertHandedOffBetweenPollsIsDeliveredOnTheNextHeartbeat() async {
+        let api = HandOffNotificationAPI()
+        let posted = PostedBanners()
+        let manager = NotificationManager(
+            api: api, center: .current(), defaults: throwawayDefaults(),
+            checkInterval: 0.05,                       // the heartbeat, scaled down
+            authorization: { .authorized },
+            deliver: { posted.identifiers.append($0.identifier) })
+
+        manager.start(pollInterval: 3600)              // the next POLL is an hour away
+        // The first pass has run and found nothing yet.
+        let firstPass = await waitUntil { api.fetches >= 1 }
+        XCTAssertTrue(firstPass, "the manager never made its first check")
+
+        api.handOff(tierOneItem(id: 21))               // backend defers a Tier 1 to the app
+        let delivered = await waitUntil {
+            posted.identifiers.contains("thresher.notification.21")
+        }
+        // A few more beats: still exactly one banner for that alert.
+        _ = await waitUntil(timeout: 0.2) { false }
+        manager.stop()
+
+        XCTAssertTrue(delivered, "an alert handed off between polls waited for the next "
+                        + "POLL instead of the next heartbeat")
+        XCTAssertEqual(posted.identifiers, ["thresher.notification.21"],
+                       "one handed-off alert must post exactly one banner")
     }
 
     // ── 2. Fast path: banners trigger a list refresh ──────────────────────────

@@ -349,3 +349,47 @@ def test_claim_within_the_trusted_window_still_defers(conn):
     assert decision.defer_to_app is True
     assert sender.sent == []
     assert _json.loads(_log_rows(conn)[0]["payload"])["delivery"] == DELIVERY_APP
+
+
+# The exact heartbeat the app writes: ISO8601DateFormatter in UTC, which renders
+# the offset as a trailing "Z" (APIClient.claimDelivery). Taken verbatim from
+# the poller log on 2026-10-10, where it was rejected as "Invalid".
+APP_HEARTBEAT = "2026-10-10T13:07:52Z"
+
+
+def test_app_written_heartbeat_with_Z_takes_over_delivery(conn):
+    """The app's own heartbeat format must hand delivery to the app.
+
+    Every other heartbeat test writes Python's `isoformat()` (`+00:00`), which no
+    real app ever sends. On 3.9 — the interpreter the bundled backend runs on —
+    `fromisoformat` rejects the trailing "Z", so every live claim read as absent
+    and every alert went out via osascript, attributed to Script Editor (OI27,
+    D84). On 3.11 `fromisoformat` accepts "Z", so this only fails on 3.9; that is
+    the interpreter that matters."""
+    now = datetime(2026, 10, 10, 13, 8, 8, tzinfo=timezone.utc)   # 16s after the beat
+    PreferencesRepo(conn).set("operating_mode", "focus")
+    PreferencesRepo(conn).set(DELIVERY_HEARTBEAT_KEY, APP_HEARTBEAT)
+    _seed_message(conn, message_id="m-app-beat", tier=1)
+
+    sender = RecordingSender()
+    decision = _service(conn, sender, clock=_fixed_clock(now)).notify_for_message("m-app-beat")
+
+    assert decision.defer_to_app is True
+    assert sender.sent == []
+    assert _json.loads(_log_rows(conn)[0]["payload"])["delivery"] == DELIVERY_APP
+
+
+def test_app_written_heartbeat_with_Z_still_goes_stale(conn):
+    """Parsing "Z" must not make a stale claim live. The same app-format beat,
+    read long after the freshness window, falls back to osascript — so the test
+    above passes because the beat is FRESH, not because "Z" became a free pass."""
+    now = datetime(2026, 10, 10, 13, 30, 0, tzinfo=timezone.utc)   # ~22 min later
+    PreferencesRepo(conn).set("operating_mode", "focus")
+    PreferencesRepo(conn).set(DELIVERY_HEARTBEAT_KEY, APP_HEARTBEAT)
+    _seed_message(conn, message_id="m-app-stale", tier=1)
+
+    sender = RecordingSender()
+    decision = _service(conn, sender, clock=_fixed_clock(now)).notify_for_message("m-app-stale")
+
+    assert decision.defer_to_app is False
+    assert len(sender.sent) == 1

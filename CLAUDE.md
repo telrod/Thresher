@@ -35,12 +35,39 @@ them flake. Run one at a time; re-run a red frontend result alone before
 believing it.
 
 ```
-cd backend && python3 -m pytest tests/ -q                   # 485 tests, ~27s
+cd backend && python3 -m pytest tests/ -q                   # 506 tests, ~25s
 
 xcodebuild -project frontend/Thresher.xcodeproj \
   -scheme Thresher -destination 'platform=macOS' \
-  -only-testing:ThresherTests test                          # 274 tests, ~92s
+  -only-testing:ThresherTests test                          # 285 tests, ~95s
 ```
+
+### Run the backend suite on `/usr/bin/python3` too
+
+**The shipped backend runs on `/usr/bin/python3` (3.9.6), not your `python3`.**
+A green run on a newer interpreter proves nothing about 3.9: `fromisoformat`
+accepted the app's `Z` timestamps on 3.11 and rejected every one on 3.9, so
+native notifications never worked in the shipped app (D84). CI runs 3.9; run it
+locally before believing a notification or date-handling change:
+
+```
+/usr/bin/python3 -m venv --clear .venv                      # same as CONTRIBUTING.md
+.venv/bin/python -m pip install flask pytest
+cd backend && ../.venv/bin/python -m pytest tests/ -q -rs   # 0 skipped
+```
+
+**`--clear` is not optional.** Without it, running `venv` over an existing
+`.venv` keeps that venv's interpreter: a 3.12 `.venv` stayed 3.12 and reported
+green on the wrong Python. Confirm with `.venv/bin/python -V` → `3.9.6`.
+
+**Keep the venv out of `backend/`.** `test_python_floor.py` imports every `.py`
+under `backend/`, so a venv there fails it with hundreds of false violations.
+
+**A timestamp the app writes must be tested in the app's format.** Swift's
+`ISO8601DateFormatter` writes UTC as a trailing `Z`; Python's `isoformat()`
+writes `+00:00`. A test that builds its input with `isoformat()` cannot catch a
+parser that rejects the real thing. The decision record is D84 and the open
+interpreter dependency is OI41 (`docs/STATUS.md`).
 
 **Check for an `Executed N tests` line before believing a red result.** A wedged
 `testmanagerd` and a genuine failure both print `** TEST FAILED **`; the harness
@@ -78,9 +105,26 @@ Two further traps when asserting on a rendered window:
   give the root an opaque background, and assert dark-ink pixels exist, not just
   that renders differ (`AskPeopleStepTests`).
 
+**Screenshots capture Thresher's window only, never the full screen.** A
+full-screen capture records whatever else is on the user's desktop. Find the
+window with `CGWindowListCopyWindowInfo` (owner `Thresher`, layer 0) and pass its
+number to `screencapture -x -o -l <id>`; if there is no Thresher window, take no
+screenshot.
+
 **A view-model test proves the state is right. It cannot prove a click reaches
 the state, or that the result is legible on screen.** This has now hidden a
 shipped feature twice behind a green suite.
+
+---
+
+## Check a fixed path before generating into it
+
+**Before creating a virtualenv, build output, or any other generated directory
+at a fixed path, check whether the path already exists and what references it.
+If it exists, stop and ask.** Tools that "create" often reuse what is there
+instead: `python3 -m venv .venv` over an existing 3.12 `.venv` rewrote its
+config, kept its 3.12 interpreter, and installed packages into it — damaging
+someone's environment and producing a test run on the wrong Python, silently.
 
 ---
 

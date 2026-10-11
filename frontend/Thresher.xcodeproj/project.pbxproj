@@ -24,6 +24,7 @@
 		TE1400000000000000000F12 /* AccountHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000F10 /* AccountHealth.swift */; };
 		6BDF34C25236025C7846A527 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1894E9166BD946E1A4397A /* Preferences.swift */; };
 		TE1400000000000000000FB2 /* BackendSupervisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000FB0 /* BackendSupervisor.swift */; };
+		TE1500000000000000000002 /* LaunchRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1500000000000000000001 /* LaunchRouter.swift */; };
 		TE1400000000000000000F92 /* BackgroundPolling.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000F90 /* BackgroundPolling.swift */; };
 		TE1400000000000000000F72 /* DockBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000F70 /* DockBadge.swift */; };
 		TE1400000000000000000FB1 /* DockBadgeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000FB3 /* DockBadgeMonitor.swift */; };
@@ -69,6 +70,8 @@
 		TE1400000000000000000FF1 /* ChipRowClippingThresholdTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000FF3 /* ChipRowClippingThresholdTests.swift */; };
 		TE1400000000000000001001 /* SettingsHealthRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000001003 /* SettingsHealthRenderTests.swift */; };
 		TE1400000000000000002001 /* AskPeopleStepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000002003 /* AskPeopleStepTests.swift */; };
+		TE1500000000000000000006 /* APIClientRetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1500000000000000000005 /* APIClientRetryTests.swift */; };
+		TE1500000000000000000004 /* LaunchRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1500000000000000000003 /* LaunchRoutingTests.swift */; };
 		TE1400000000000000000F62 /* RetrievalWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000F60 /* RetrievalWindowTests.swift */; };
 		TE1400000000000000000F42 /* PollIntervalSettingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000F40 /* PollIntervalSettingTests.swift */; };
 		TE1400000000000000000F22 /* AccountHealthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TE1400000000000000000F20 /* AccountHealthTests.swift */; };
@@ -108,6 +111,7 @@
 		TE1400000000000000000F10 /* AccountHealth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHealth.swift; sourceTree = "<group>"; };
 		5E1894E9166BD946E1A4397A /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		TE1400000000000000000FB0 /* BackendSupervisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendSupervisor.swift; sourceTree = "<group>"; };
+		TE1500000000000000000001 /* LaunchRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchRouter.swift; sourceTree = "<group>"; };
 		TE1400000000000000000F90 /* BackgroundPolling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundPolling.swift; sourceTree = "<group>"; };
 		TE1400000000000000000F70 /* DockBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockBadge.swift; sourceTree = "<group>"; };
 		TE1400000000000000000FB3 /* DockBadgeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockBadgeMonitor.swift; sourceTree = "<group>"; };
@@ -156,6 +160,8 @@
 		TE1400000000000000000FF3 /* ChipRowClippingThresholdTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipRowClippingThresholdTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000001003 /* SettingsHealthRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsHealthRenderTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000002003 /* AskPeopleStepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPeopleStepTests.swift; sourceTree = "<group>"; };
+		TE1500000000000000000005 /* APIClientRetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientRetryTests.swift; sourceTree = "<group>"; };
+		TE1500000000000000000003 /* LaunchRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchRoutingTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000000F60 /* RetrievalWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrievalWindowTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000000F40 /* PollIntervalSettingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollIntervalSettingTests.swift; sourceTree = "<group>"; };
 		TE1400000000000000000F20 /* AccountHealthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHealthTests.swift; sourceTree = "<group>"; };
@@ -263,6 +269,8 @@
 				TE1400000000000000000FF3 /* ChipRowClippingThresholdTests.swift */,
 				TE1400000000000000001003 /* SettingsHealthRenderTests.swift */,
 				TE1400000000000000002003 /* AskPeopleStepTests.swift */,
+				TE1500000000000000000005 /* APIClientRetryTests.swift */,
+				TE1500000000000000000003 /* LaunchRoutingTests.swift */,
 				TE1400000000000000000F60 /* RetrievalWindowTests.swift */,
 				TE1400000000000000000F40 /* PollIntervalSettingTests.swift */,
 				TE1400000000000000000F20 /* AccountHealthTests.swift */,
@@ -368,6 +376,7 @@
 				A1B2C3D40000000000000011 /* MessageDetail.swift */,
 				5E1894E9166BD946E1A4397A /* Preferences.swift */,
 				TE1400000000000000000FB0 /* BackendSupervisor.swift */,
+				TE1500000000000000000001 /* LaunchRouter.swift */,
 				TE1400000000000000000F90 /* BackgroundPolling.swift */,
 				TE1400000000000000000F70 /* DockBadge.swift */,
 				TE1400000000000000000FB3 /* DockBadgeMonitor.swift */,
@@ -608,6 +617,7 @@
 				A1B2C3D40000000000000001 /* MessageDetail.swift in Sources */,
 				6BDF34C25236025C7846A527 /* Preferences.swift in Sources */,
 				TE1400000000000000000FB2 /* BackendSupervisor.swift in Sources */,
+				TE1500000000000000000002 /* LaunchRouter.swift in Sources */,
 				TE1400000000000000000F92 /* BackgroundPolling.swift in Sources */,
 				TE1400000000000000000F72 /* DockBadge.swift in Sources */,
 				TE1400000000000000000FB1 /* DockBadgeMonitor.swift in Sources */,
@@ -668,6 +678,8 @@
 				TE1400000000000000000FF1 /* ChipRowClippingThresholdTests.swift in Sources */,
 				TE1400000000000000001001 /* SettingsHealthRenderTests.swift in Sources */,
 				TE1400000000000000002001 /* AskPeopleStepTests.swift in Sources */,
+				TE1500000000000000000006 /* APIClientRetryTests.swift in Sources */,
+				TE1500000000000000000004 /* LaunchRoutingTests.swift in Sources */,
 				TE1400000000000000000F62 /* RetrievalWindowTests.swift in Sources */,
 				TE1400000000000000000F42 /* PollIntervalSettingTests.swift in Sources */,
 				TE1400000000000000000F22 /* AccountHealthTests.swift in Sources */,

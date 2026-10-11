@@ -20,6 +20,18 @@ The app starts and stops its own backend. For working on the backend itself,
 with processes you restart by hand, see the development loop in
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
+**If you installed with `scripts/dev-run.sh` before 2026-10-11, check for an
+orphaned poller.** Older versions killed a running app instead of quitting it,
+which left its poller running after the app was gone, so mail could be polled
+twice. List anything running from a Thresher backend:
+
+```
+pgrep -fl 'main\.py|api\.server'
+```
+
+With Thresher quit, nothing should be listed. The current `dev-run.sh` stops
+any leftovers before it installs (D86), or stop them yourself with `kill <pid>`.
+
 ## Run the tests
 
 There are two suites. **Run them one at a time, never together.** The frontend
@@ -30,10 +42,13 @@ makes both compete for the same cores and causes flaky failures.
 ### Backend
 
 ```
-/usr/bin/python3 -m venv .venv
+/usr/bin/python3 -m venv --clear .venv
 .venv/bin/python -m pip install flask pytest
 cd backend && ../.venv/bin/python -m pytest tests/ -q -rs
 ```
+
+`--clear` rebuilds an existing `.venv` so it actually uses the system 3.9
+interpreter; without it, an older `.venv` keeps whatever Python made it.
 
 Run it on `/usr/bin/python3` (3.9 on macOS 14), as CI does, because that is
 the interpreter the app ships with. A newer Python can pass tests that the

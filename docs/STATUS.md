@@ -37,6 +37,51 @@ fresh install cannot produce a Tier 1").
   backend suite only, because the frontend suite has not been shown to pass on a
   hosted runner.
 - **The T4→T3 default change.** Deferred.
+- **OI41 — the bundled backend depends on macOS's built-in Python.** The app
+  runs its backend on `/usr/bin/python3` (3.9.6 on Sonoma, D68). Its age has
+  already hidden one defect: `fromisoformat` rejected the app's `Z` timestamps,
+  so native notification delivery never took over (D84). Apple may change or
+  remove this interpreter. Not addressed yet.
+- **OI42 — Settings opened right after a cold launch can say "Backend
+  unreachable".** The ⌘, window is not behind the launch readiness gate. It
+  relies on the client's retry of refused GETs, which spans ~450ms; the
+  measured cold-start gap was ~490ms. Opened within about half a second of
+  launch, Settings can show "Backend unreachable" and empty panes until reopened.
+- **OI43 — when the supervisor gives up on the poller, the app does not say
+  so.** After 3 failed restarts it stops relaunching the poller, and mail and
+  alerts stop with it. The only record is a line in `supervisor.log`;
+  `hasGivenUp(on:)` is not read by any view. The user sees a warning only when
+  the account heartbeat goes stale: "hasn't checked for mail in …" in the list
+  and the dock badge, about 11 minutes after the last poll at the default
+  interval. It does not mention alerts. A poller that dies before its first poll
+  instead shows "Waiting for the first mail check", which reads as normal,
+  indefinitely. Note when reading an existing `supervisor.log`: until
+  2026-10-10, `BackendSupervisorTests` wrote their "gave up" lines into the real
+  log, two per frontend run ("last exit 1" and "last exit unknown" in the same
+  second). The pair at 2026-10-10T18:12:13Z matches a test run to the second,
+  and every earlier pair has the same signature. The tests now log to a
+  temporary directory, guarded by a test.
+  Not explained: the test host's own `AppDelegate` wrote no `start:` line in
+  any 2026-10-10 run, even with a bundled backend and no launchd agent.
+- **OI44 — the daily digest never goes through the app.** The backend sends it
+  with osascript every time, so it shows as Script Editor even while Thresher is
+  running and owns delivery (observed 2026-10-11T00:05:55Z). The Tier 1/2 path
+  checks the app's delivery claim; `build_and_send_digest` does not. Fix: route
+  the digest through the app when the app owns delivery.
+- **OI45 — frontend test runs post real banners.** Tests that drive
+  `NotificationManager.tick()` post through the real notification center in the
+  test host, so a run can show a banner from the debug build's bundle ID (`….Thresher.debug`).
+  Confirmed: the banner recorded at 2026-10-10T21:42:31Z is
+  `thresher.notification.7`, titled "t" with body "x", which is
+  `testTickWithNewRowsFiresTheListRefreshHook`'s fixture. `NotificationManager`
+  now has a `deliver` seam (D85); moving the remaining tests onto it fixes this.
+- **OI46 — the app starts its own poller even when another process holds port
+  8765.** `BackendSupervisor.start()` skips the API when the port is held but
+  starts a poller anyway, logged as `start: started poller, skipped API (port
+  held)`. So any backend started outside the app (`scripts/backend.sh`, a
+  leftover from an older build) still means two pollers on one mailbox and one
+  store. `dev-run.sh` no longer causes this itself (D86); the app-side fix is
+  deferred.
 - **Group edits don't raise the staleness hint.** The "rules changed" hint
   counts only the `rules` table; `sender_groups` has no `updated_at`, so editing
   a group in Settings never tells the user that stored mail is out of date.

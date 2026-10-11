@@ -12,9 +12,10 @@
 //  Why a claim + poll rather than push: the backend already owns all the alerting
 //  judgment (dedup, quiet hours, mode gating, the Tier-1 invariant — D45 question
 //  A1), so the app is a pure renderer of decisions the backend already made and
-//  logged. Polling reuses D34's cadence; there is no websocket. If the app quits,
-//  the claim lapses within one TTL and the backend's osascript resumes — the
-//  Tier-1 floor never depends on the app staying up.
+//  logged. It checks every 30s, the same pass as its heartbeat (D85); there is
+//  no websocket. If the app quits, the claim goes stale within 90s and the
+//  backend's osascript resumes — the Tier-1 floor never depends on the app
+//  staying up.
 //
 //  Delivery cursor: the highest notification_log id we've processed, persisted in
 //  UserDefaults so a relaunch doesn't re-post old alerts. The server returns a
@@ -79,14 +80,37 @@ final class NotificationManager: NSObject {
     var onDeliveredNewMail: (() -> Void)?
 
     private var pollTask: Task<Void, Never>?
-    private var heartbeatTask: Task<Void, Never>?
 
-    init(api: MessageAPI = APIClient(),
-         center: UNUserNotificationCenter = .current(),
-         defaults: UserDefaults = .standard) {
+    /// Seams for tests: the cadence (seconds, not 30), the permission answer
+    /// (the test host's own is whatever macOS has on record), and where a
+    /// banner goes (the real center posts a real banner — OI45).
+    private let checkInterval: TimeInterval
+    private let authorizationOverride: (@MainActor () async -> Authorization)?
+    private let deliverOverride: (@MainActor (UNNotificationRequest) async -> Void)?
+
+    /// The live app's manager. A separate init rather than defaulted closure
+    /// arguments: Swift 5.10's SILGen crashes on defaults of that shape inside
+    /// an `@State` initializer (see LaunchRouter).
+    convenience init(api: MessageAPI = APIClient(),
+                     center: UNUserNotificationCenter = .current(),
+                     defaults: UserDefaults = .standard) {
+        self.init(api: api, center: center, defaults: defaults,
+                  checkInterval: Self.heartbeatSeconds,
+                  authorization: nil, deliver: nil)
+    }
+
+    init(api: MessageAPI,
+         center: UNUserNotificationCenter,
+         defaults: UserDefaults,
+         checkInterval: TimeInterval,
+         authorization: (@MainActor () async -> Authorization)?,
+         deliver: (@MainActor (UNNotificationRequest) async -> Void)?) {
         self.api = api
         self.center = center
         self.defaults = defaults
+        self.checkInterval = checkInterval
+        self.authorizationOverride = authorization
+        self.deliverOverride = deliver
         super.init()
         // Become the delegate so taps route into the app (commit 3) and banners
         // present even while the app is foregrounded.
@@ -104,6 +128,10 @@ final class NotificationManager: NSObject {
 
     /// Reflect the current OS authorization without prompting (call on appear).
     func refreshAuthorization() async {
+        if let authorizationOverride {
+            authorization = await authorizationOverride()
+            return
+        }
         let settings = await center.notificationSettings()
         authorization = Self.map(settings.authorizationStatus)
     }
@@ -133,37 +161,33 @@ final class NotificationManager: NSObject {
         }
     }
 
-    // ── Delivery loop (claim → poll → post) ────────────────────────────────────
+    // ── Delivery loop (check in → fetch → post, every 30s) ─────────────────────
 
-    /// Start delivering natively: claim the hand-off and poll on the given cadence
-    /// (the D34 poll interval). No-op unless authorized — if the user hasn't
-    /// granted permission, the backend keeps delivering and we never claim.
+    /// Start delivering natively. No-op unless authorized — without permission
+    /// the backend keeps delivering and we never claim.
+    ///
+    /// ONE loop on the fixed heartbeat cadence (D85), each pass checking in AND
+    /// fetching. Fetching only once per mail poll made a Tier 1 wait up to a
+    /// whole poll interval for its banner — 3m55s measured on 2026-10-11 —
+    /// where osascript, which this replaces, posts at once. One loop rather than
+    /// a heartbeat loop plus a poll loop: the heartbeat is always at least as
+    /// frequent, two loops calling `tick()` would read the same cursor and post
+    /// the same rows, and claiming without fetching (which the separate
+    /// heartbeat could do) defers alerts to an app that never shows them.
+    ///
+    /// `pollInterval` no longer sets any cadence here; it is kept for the call
+    /// site and the claim TTL accessor.
     func start(pollInterval: TimeInterval) {
         claimTTLSeconds = Self.claimTTL(forPollInterval: pollInterval)
-        pollTask?.cancel()
-        heartbeatTask?.cancel()
+        stop()
         pollTask = Task { [weak self] in
             guard let self else { return }
             await self.refreshAuthorization()
-            guard self.authorization == .authorized else { return }
             while !Task.isCancelled {
-                await self.tick()
-                try? await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
-            }
-        }
-        // The heartbeat runs on its OWN fixed cadence, not the poll interval.
-        // Coupling them is what let a quit app stay trusted for ~10 minutes
-        // (2026-09-06): at a 5- or 15-minute interval the app checked in far too
-        // rarely for the backend to notice it had gone.
-        heartbeatTask = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                guard self.authorization == .authorized else {
-                    try? await Task.sleep(nanoseconds: UInt64(Self.heartbeatSeconds * 1_000_000_000))
-                    continue
+                if self.authorization == .authorized {
+                    await self.tick()
                 }
-                try? await self.api.claimDelivery(forSeconds: self.claimTTLSeconds)
-                try? await Task.sleep(nanoseconds: UInt64(Self.heartbeatSeconds * 1_000_000_000))
+                try? await Task.sleep(nanoseconds: UInt64(self.checkInterval * 1_000_000_000))
             }
         }
     }
@@ -171,8 +195,6 @@ final class NotificationManager: NSObject {
     func stop() {
         pollTask?.cancel()
         pollTask = nil
-        heartbeatTask?.cancel()
-        heartbeatTask = nil
     }
 
     /// One delivery cycle: refresh the claim (so the backend keeps deferring to
@@ -180,9 +202,8 @@ final class NotificationManager: NSObject {
     /// Best-effort — a transport error just skips this cycle; the backend still
     /// covers delivery, so a missed poll never drops an alert.
     func tick() async {
-        // Check in here too, so a direct tick() (tests, and the first pass before
-        // the heartbeat task's own first beat) still marks the app alive. The
-        // steady-state cadence is heartbeatTask's fixed 30s, not this.
+        // Check in on every pass: this IS the 30s heartbeat (D85), so the claim
+        // and the fetch that honours it always happen together.
         try? await api.claimDelivery(forSeconds: claimTTLSeconds)
 
         let since = defaults.integer(forKey: Self.cursorKey)   // 0 if unset
@@ -216,7 +237,11 @@ final class NotificationManager: NSObject {
         let request = UNNotificationRequest(
             identifier: "thresher.notification.\(item.id)",
             content: content, trigger: nil)
-        try? await center.add(request)
+        if let deliverOverride {
+            await deliverOverride(request)
+        } else {
+            try? await center.add(request)
+        }
     }
 
     /// Record a tapped notification's message id for the window to pick up. Split
