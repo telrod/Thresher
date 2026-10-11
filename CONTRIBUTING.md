@@ -4,6 +4,9 @@ Thresher is alpha software with one user. Contributions are welcome. Read this
 page first, then [`CLAUDE.md`](CLAUDE.md), which holds the conventions the code
 is held to. Those conventions apply whether you are a person or an agent.
 
+Everyone taking part is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Build
 
 You need macOS 14 (Sonoma) or later and Xcode. No Python install is needed:

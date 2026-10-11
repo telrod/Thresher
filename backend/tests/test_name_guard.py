@@ -42,6 +42,9 @@ _REPO = Path(__file__).resolve().parents[2]
 _ALLOWLIST = {
     # The copyright line.
     "LICENSE": {"Gbz Ryebq": 1},
+    # The enforcement contact the Contributor Covenant requires: the one place
+    # a reporter is told where to write. Exactly this address, once.
+    "CODE_OF_CONDUCT.md": {"gbz.ryebq@tznvy.pbz": 1},
     # The bundle identifier and the launchd labels derived from it. Changing
     # them moves Keychain items, UserDefaults and launchd jobs, so they stay.
     "frontend/Thresher.xcodeproj/project.pbxproj": {

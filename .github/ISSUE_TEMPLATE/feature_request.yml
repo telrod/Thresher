@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest a change to what Thresher does.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you file, check `docs/IDEAS.md` in the repository. It lists ideas that were considered and deliberately not built, with the tradeoff written down.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem would this solve? Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should Thresher do instead?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you thought about, and why you prefer this one.
+    validations:
+      required: true
