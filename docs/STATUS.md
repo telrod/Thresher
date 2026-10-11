@@ -73,7 +73,8 @@ fresh install cannot produce a Tier 1").
   test host, so a run can show a banner from the debug build's bundle ID (`….Thresher.debug`).
   Confirmed: the banner recorded at 2026-10-10T21:42:31Z is
   `thresher.notification.7`, titled "t" with body "x", which is
-  `testTickWithNewRowsFiresTheListRefreshHook`'s fixture.
+  `testTickWithNewRowsFiresTheListRefreshHook`'s fixture. `NotificationManager`
+  now has a `deliver` seam (D85); moving the remaining tests onto it fixes this.
 - **Group edits don't raise the staleness hint.** The "rules changed" hint
   counts only the `rules` table; `sender_groups` has no `updated_at`, so editing
   a group in Settings never tells the user that stored mail is out of date.
