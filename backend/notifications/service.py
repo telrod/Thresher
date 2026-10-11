@@ -228,6 +228,21 @@ class NotificationService:
 
         ids = [r["id"] for r in rows]
         title, subtitle, text = self._format_digest(rows)
+        summary = {"title": title, "text": text, "message_ids": ids, "count": len(ids)}
+
+        # OI44 / D88: the same handoff the Tier 1/2 path makes. While the app
+        # owns delivery, log the row for GET /notifications and do NOT run
+        # osascript, which Notification Center attributes to Script Editor
+        # (D84). Either path writes exactly one 'digest' row, and that row is
+        # what `_digest_already_sent_today` reads, so a change of owner between
+        # this tick and the next cannot send the digest a second time.
+        if self._app_owns_delivery():
+            self._log_notification(None, "digest", {**summary, "delivery": DELIVERY_APP},
+                                   delivered=False)
+            log.info("Queued daily digest (%d Tier 3 message(s)) — handed to the "
+                     "native app for delivery", len(ids))
+            return DigestResult(True, "handed to the app", len(ids), ids)
+
         try:
             # Digest is a summary, never a sound alert (P2: ambient).
             self._send(title=title, subtitle=subtitle, text=text, sound=False)
@@ -235,12 +250,10 @@ class NotificationService:
             log.exception("Failed to deliver daily digest")
             return DigestResult(False, "delivery failed", len(ids), ids)
 
-        self._log_notification(
-            None, "digest",
-            {"title": title, "text": text, "message_ids": ids, "count": len(ids)},
-            delivered=True,
-        )
-        log.info("Sent daily digest summarizing %d Tier 3 message(s)", len(ids))
+        self._log_notification(None, "digest", {**summary, "delivery": DELIVERY_OSASCRIPT},
+                               delivered=True)
+        log.info("Sent daily digest summarizing %d Tier 3 message(s) via %s",
+                 len(ids), DELIVERY_OSASCRIPT)
         return DigestResult(True, "sent", len(ids), ids)
 
     def _recent_tier3(self) -> list:
