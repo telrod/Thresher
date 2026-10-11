@@ -321,8 +321,8 @@ final class PollerFailureTests: XCTestCase {
 
         XCTAssertNil(model.firstFetch, "still saying the first check is in progress")
         XCTAssertEqual(model.accountWarning?.message,
-                       "The mailbox hasn't checked for mail in 11 min. New mail and alerts "
-                       + "may be delayed — quit and reopen Thresher if this persists.")
+                       "Thresher hasn't checked for mail in 11 min. New mail and alerts "
+                       + "may be delayed. If this continues, quit and reopen Thresher.")
 
         let band = try await orangeBand(status: status, rows: [],
                                         health: report("never", secondsSince: nil),
@@ -375,13 +375,68 @@ final class PollerFailureTests: XCTestCase {
     func testTheStaleSentenceSaysAlertsMayBeDelayed() {
         let stale = report("stale", secondsSince: 1_200).accounts[0]
         XCTAssertEqual(AccountHealthVerdict.sentence(for: stale, totalAccounts: 1),
-                       "The mailbox hasn't checked for mail in 20 min. New mail and alerts "
-                       + "may be delayed — quit and reopen Thresher if this persists.")
+                       "Thresher hasn't checked for mail in 20 min. New mail and alerts "
+                       + "may be delayed. If this continues, quit and reopen Thresher.")
         let unknown = AccountHealthEntry(account: "you@example.com", status: "stale",
                                          lastPollAt: nil, secondsSince: nil, detail: "")
         XCTAssertEqual(AccountHealthVerdict.sentence(for: unknown, totalAccounts: 1),
-                       "The mailbox hasn't checked for mail recently. New mail and alerts "
+                       "Thresher hasn't checked for mail recently. New mail and alerts "
                        + "may be delayed.")
+    }
+
+    func testWithSeveralMailboxesTheStaleSentenceNamesTheAddress() {
+        let stale = report("stale", secondsSince: 1_200).accounts[0]
+        XCTAssertEqual(AccountHealthVerdict.sentence(for: stale, totalAccounts: 2),
+                       "you@example.com hasn't checked for mail in 20 min. New mail and "
+                       + "alerts may be delayed. If this continues, quit and reopen Thresher.")
+    }
+
+    // ── 5. A Restart that does not work ──────────────────────────────────────
+
+    /// A report whose threshold implies a 0.5s poll interval (2 x 0.5 + 60 = 61),
+    /// so the restart deadline (2 x interval) is one second.
+    private func shortIntervalReport(_ status: String, secondsSince: Int?) -> AccountHealthReport {
+        AccountHealthReport(healthy: false,
+                            accounts: [entry(status, secondsSince: secondsSince)],
+                            staleAfterSeconds: 61)
+    }
+
+    func testARestartWithNoSuccessfulPollTimesOutToTheGiveUpBanner() async throws {
+        let rig = try rig()
+        driveToGiveUp(rig, extraTicks: 0)
+        await settle(timeout: 0.3)
+        // The poller runs, but every poll fails.
+        rig.health.report = shortIntervalReport("error", secondsSince: 0)
+        rig.status.restart()
+
+        await settle(timeout: 0.5)
+        if case .restarting = rig.status.state {} else {
+            XCTFail("timed out before the deadline: \(rig.status.state)")
+        }
+        await settle(timeout: 3) { rig.status.state == .restartFailed }
+        XCTAssertEqual(rig.status.state, .restartFailed,
+                       "no successful poll within 2 x the poll interval must end the wait")
+        XCTAssertTrue(rig.status.isStopped, "the banner must stay up")
+        XCTAssertEqual(PollerStoppedBanner.message(for: rig.status.state),
+                       "Restart didn't work. Quit and reopen Thresher.")
+        XCTAssertTrue(PollerStoppedBanner.offersRestart(in: rig.status.state))
+        XCTAssertEqual(rig.posted.requests.count, 1,
+                       "a failed restart is not a new give-up and posts no alert")
+
+        // Restart is still available, and relaunches a poller that is running.
+        let launches = rig.host.launchCount[BackendSupervisor.pollerID] ?? 0
+        rig.health.report = report("ok", secondsSince: 0)
+        rig.status.restart()
+        XCTAssertEqual(rig.host.launchCount[BackendSupervisor.pollerID], launches + 1)
+        await settle { !rig.status.isStopped }
+        XCTAssertEqual(rig.status.state, .running)
+    }
+
+    func testTheBannerTextForEachState() {
+        XCTAssertEqual(PollerStoppedBanner.message(for: .gaveUp),
+                       "Thresher has stopped checking for mail, and alerts are paused.")
+        XCTAssertTrue(PollerStoppedBanner.offersRestart(in: .gaveUp))
+        XCTAssertFalse(PollerStoppedBanner.offersRestart(in: .restarting(since: Date())))
     }
 
     // ── Rendering ────────────────────────────────────────────────────────────

@@ -132,7 +132,9 @@ list then shows "Thresher has stopped checking for mail, and alerts are paused."
 with a **Restart** button, the dock badge shows **Off** (beside the urgent
 count, if any), and one notification says "Thresher stopped checking mail". The
 banner stays until a mail check succeeds after the restart. A relaunch alone
-does not clear it (D87).
+does not clear it. If no check succeeds within two poll intervals, the banner
+says "Restart didn't work. Quit and reopen Thresher." and offers Restart again
+(D87).
 
 **The cost, stated plainly: quit the app and nothing fetches mail.** Urgent mail
 waits until you next open it. This was a deliberate choice over always-on
@@ -228,7 +230,7 @@ property of an unconfigured install, not a fault.
 progress rather than an empty list. If the fetch fails, it says so — it does not
 quietly settle into looking like an empty mailbox. If no first check has
 finished within two poll intervals plus a minute of the poller starting, it
-stops saying "waiting" and says the mailbox hasn't checked for mail, and that new
+stops saying "waiting" and says Thresher hasn't checked for mail, and that new
 mail and alerts may be delayed (D87).
 
 **Why:** "Still working" and "finished, found nothing" and "broken" are three

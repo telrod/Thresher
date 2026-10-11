@@ -311,20 +311,27 @@ final class BackendSupervisor {
     /// Called each time the poller is launched, for any reason.
     var onPollerLaunched: ((Date) -> Void)?
 
-    /// The user's Restart (OI43): relaunch a process the supervisor gave up on,
-    /// with a full restart budget, as if the app had just started it.
+    /// The user's Restart (OI43): relaunch the poller with a full restart
+    /// budget, as if the app had just started it.
     ///
-    /// Only a process this supervisor owns and gave up on: anything else is
-    /// either running or someone else's, and restarting it from here is the
-    /// two-supervisors fight `shouldManageBackend` exists to prevent.
+    /// After a give-up nothing is running. After a Restart that did not work
+    /// the poller may be running but failing every poll, so it is stopped first
+    /// — the same SIGTERM `stop()` sends — and launched fresh.
+    ///
+    /// Only a process this supervisor owns: anything else is someone else's,
+    /// and restarting it from here is the two-supervisors fight
+    /// `shouldManageBackend` exists to prevent.
     @discardableResult
-    func restartAfterGiveUp(_ id: String) -> Bool {
-        guard !stopped, gaveUp.contains(id), owned.contains(id),
+    func restartByUser(_ id: String) -> Bool {
+        guard !stopped, owned.contains(id),
               let backendDirectory, let python else { return false }
-        gaveUp.remove(id)
+        let afterGiveUp = gaveUp.remove(id) != nil
+        if host.isRunning(id) { host.terminate(id) }
         restarts[id] = 0
         Self.appendToSupervisorLog(
-            "restart: \(id) restarted by the user after a give-up (restart budget reset)",
+            "restart: \(id) restarted by the user "
+            + (afterGiveUp ? "after a give-up" : "after a restart that did not work")
+            + " (restart budget reset)",
             in: logDirectory)
         relaunch(id, python: python, in: backendDirectory)
         return true

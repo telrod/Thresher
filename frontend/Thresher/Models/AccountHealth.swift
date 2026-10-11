@@ -169,11 +169,14 @@ enum AccountHealthVerdict {
             // Alerts too (OI43): a Tier 1 alert comes from a poll, so a poller
             // that is not polling is not alerting either, and "new mail" alone
             // let a user waiting on an alert read this as not about them.
+            // With one mailbox the subject is Thresher, which is what stopped
+            // checking; with several, the address says which one.
+            let checker = totalAccounts > 1 ? entry.account : "Thresher"
             if let silence {
-                return "\(who) hasn't checked for mail in \(silence). New mail and alerts "
-                     + "may be delayed — quit and reopen Thresher if this persists."
+                return "\(checker) hasn't checked for mail in \(silence). New mail and alerts "
+                     + "may be delayed. If this continues, quit and reopen Thresher."
             }
-            return "\(who) hasn't checked for mail recently. New mail and alerts may be delayed."
+            return "\(checker) hasn't checked for mail recently. New mail and alerts may be delayed."
         case "never":
             // Not an error. On a fresh install this is simply the truth until
             // the first check completes, and it resolves itself.

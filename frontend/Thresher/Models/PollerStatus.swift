@@ -36,6 +36,9 @@ final class PollerStatus {
         /// The user pressed Restart at `since`; cleared by the first successful
         /// poll after that instant, not by the relaunch itself.
         case restarting(since: Date)
+        /// No poll succeeded within 2 x the poll interval of a Restart. The
+        /// banner is back, saying so, and Restart is offered again.
+        case restartFailed
     }
 
     /// The live app's instance, wired to the supervisor in `AppDelegate`.
@@ -91,18 +94,39 @@ final class PollerStatus {
     /// a successful poll: a relaunched process is not yet a working one, and
     /// clearing on the relaunch would hide the next failure behind a banner
     /// that already said "fixed".
+    ///
+    /// Bounded: if no poll succeeds within 2 x the poll interval, the wait
+    /// ends in `.restartFailed` rather than "Restarting…" for ever — a poller
+    /// that runs but cannot poll (a rejected password, say) never exits, so
+    /// the supervisor would never give up on it again.
     func restart(at date: Date = Date()) {
-        guard state == .gaveUp else { return }
+        guard state == .gaveUp || state == .restartFailed else { return }
         setState(.restarting(since: date))
         restartPoller?()
         confirmTask?.cancel()
         confirmTask = Task { [weak self] in
             while let self, !Task.isCancelled, self.isRestarting {
-                self.observe(await self.fetchHealth())
+                let report = await self.fetchHealth()
+                self.observe(report)
                 guard self.isRestarting else { return }
+                if Date().timeIntervalSince(date) > Self.restartDeadline(for: report) {
+                    self.setState(.restartFailed)
+                    return
+                }
                 try? await Task.sleep(nanoseconds: UInt64(self.confirmInterval * 1_000_000_000))
             }
         }
+    }
+
+    /// 2 x the poll interval. The interval is read back from the report's
+    /// threshold (`stale_after_seconds` = 2 x interval + 60), which the backend
+    /// derives from the setting, so no second request is needed. Without a
+    /// report, the default interval.
+    static func restartDeadline(for report: AccountHealthReport?) -> TimeInterval {
+        let interval = report?.staleAfterSeconds
+            .map { TimeInterval($0 - 60) / 2 }
+            ?? TimeInterval(Preferences.defaultPollIntervalMinutes * 60)
+        return 2 * max(interval, 0)
     }
 
     /// Feed a health report in. Every fetch anywhere in the app comes through
@@ -182,7 +206,7 @@ enum PollerFailureWiring {
         }
         supervisor.onPollerLaunched = { date in status.pollerLaunched(at: date) }
         status.restartPoller = { [weak supervisor] in
-            supervisor?.restartAfterGiveUp(BackendSupervisor.pollerID)
+            supervisor?.restartByUser(BackendSupervisor.pollerID)
         }
     }
 }

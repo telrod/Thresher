@@ -778,21 +778,33 @@ struct MessageListView: View {
 struct PollerStoppedBanner: View {
     let status: PollerStatus
 
+    static func message(for state: PollerStatus.State) -> String {
+        switch state {
+        case .restarting:    return "Restarting… Thresher resumes once it has checked for mail."
+        case .restartFailed: return "Restart didn't work. Quit and reopen Thresher."
+        case .gaveUp, .running:
+            return "Thresher has stopped checking for mail, and alerts are paused."
+        }
+    }
+
+    /// Restart is offered whenever the banner is not already waiting on one.
+    static func offersRestart(in state: PollerStatus.State) -> Bool {
+        if case .restarting = state { return false }
+        return true
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-            if case .restarting = status.state {
-                Text("Restarting… Thresher resumes once it has checked for mail.")
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-                ProgressView().controlSize(.small)
-            } else {
-                Text("Thresher has stopped checking for mail, and alerts are paused.")
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
+            Text(Self.message(for: status.state))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            if Self.offersRestart(in: status.state) {
                 Button("Restart") { status.restart() }
                     .controlSize(.small)
                     .accessibilityIdentifier("list.pollerStopped.restart")
+            } else {
+                ProgressView().controlSize(.small)
             }
         }
         .font(.caption)

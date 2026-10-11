@@ -55,8 +55,6 @@ fresh install cannot produce a Tier 1").
     the banner and badge are the only signals.
   - Only the poller is covered. A give-up on the API is not surfaced beyond the
     launch screen's "Can't reach the Thresher backend".
-  - A poller that is relaunched by Restart and then hangs without exiting
-    leaves the banner on "Restarting…" with no time limit.
   - The banner is in the main window only, not in Settings.
   - When launchd owns the poller the app has no start time, so an overdue first
     check still says "Waiting".
