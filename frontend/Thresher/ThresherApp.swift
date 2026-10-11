@@ -67,6 +67,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// nudge would be more coupling than the nudge is worth.
     @MainActor
     static func backendShouldPollNow() {
+        // A mailbox was just connected: its first check starts now, however
+        // long the poller has been running (OI43).
+        PollerStatus.shared.accountConnected()
         shared?.supervisor?.restartAnythingThatDied()
     }
 
@@ -81,6 +84,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let supervisor = BackendSupervisor()
+        // OI43: before start(), so the first launch starts the first-check
+        // clock and every give-up from here on reaches the screen.
+        PollerFailureWiring.connect(supervisor, to: .shared, alert: .live)
         do {
             let summary = try supervisor.start()
             self.supervisor = supervisor

@@ -202,6 +202,7 @@ final class BackendSupervisor {
                             workingDirectory: backendDirectory)
             owned.insert(Self.pollerID)
             summary.startedPoller = true
+            onPollerLaunched?(Date())
         } else {
             summary.pollerAlreadyRunning = true
         }
@@ -263,9 +264,7 @@ final class BackendSupervisor {
             // exits immediately) and it means the poller is already running the
             // instant an account appears, with no extra signalling path.
             if host.lastExitStatus(id) == Self.exitNotConfigured {
-                try? host.launch(id, python: python,
-                                 arguments: Self.arguments(for: id),
-                                 workingDirectory: backendDirectory)
+                relaunch(id, python: python, in: backendDirectory)
                 continue
             }
 
@@ -273,19 +272,32 @@ final class BackendSupervisor {
             guard count < Self.maxRestarts else {
                 gaveUp.insert(id)
                 // The single most important line this app can write: from here
-                // on, that process is never coming back without a relaunch, and
-                // nothing in the UI says so.
+                // on, that process is never coming back without a restart.
+                // `onGiveUp` is what puts it on screen (OI43); this branch runs
+                // once per give-up, so the alert it raises does too.
                 Self.appendToSupervisorLog(
                     "gave up on \(id) after \(count) restarts "
                     + "(last exit \(host.lastExitStatus(id).map(String.init) ?? "unknown")) "
-                    + "— it will not be retried until the app is restarted",
+                    + "— it will not be retried until it is restarted",
                     in: logDirectory)
+                onGiveUp?(id)
                 continue
             }
             restarts[id] = count + 1
-            try? host.launch(id, python: python,
-                             arguments: Self.arguments(for: id),
-                             workingDirectory: backendDirectory)
+            relaunch(id, python: python, in: backendDirectory)
+        }
+    }
+
+    /// Every relaunch goes through here, so each poller launch is reported.
+    private func relaunch(_ id: String, python: URL, in backendDirectory: URL) {
+        do {
+            try host.launch(id, python: python,
+                            arguments: Self.arguments(for: id),
+                            workingDirectory: backendDirectory)
+            if id == Self.pollerID { onPollerLaunched?(Date()) }
+        } catch {
+            // As before: a failed relaunch is retried on the next tick, and
+            // counts against the budget like any other death.
         }
     }
 
@@ -293,6 +305,30 @@ final class BackendSupervisor {
     /// can say so — a supervisor that quietly gives up is the silent failure
     /// D65 exists to prevent, one layer down.
     func hasGivenUp(on id: String) -> Bool { gaveUp.contains(id) }
+
+    /// Called with the process id at the moment the supervisor gives up on it.
+    var onGiveUp: ((String) -> Void)?
+    /// Called each time the poller is launched, for any reason.
+    var onPollerLaunched: ((Date) -> Void)?
+
+    /// The user's Restart (OI43): relaunch a process the supervisor gave up on,
+    /// with a full restart budget, as if the app had just started it.
+    ///
+    /// Only a process this supervisor owns and gave up on: anything else is
+    /// either running or someone else's, and restarting it from here is the
+    /// two-supervisors fight `shouldManageBackend` exists to prevent.
+    @discardableResult
+    func restartAfterGiveUp(_ id: String) -> Bool {
+        guard !stopped, gaveUp.contains(id), owned.contains(id),
+              let backendDirectory, let python else { return false }
+        gaveUp.remove(id)
+        restarts[id] = 0
+        Self.appendToSupervisorLog(
+            "restart: \(id) restarted by the user after a give-up (restart budget reset)",
+            in: logDirectory)
+        relaunch(id, python: python, in: backendDirectory)
+        return true
+    }
 
     // ── Locating the backend (the packaging half of D67) ─────────────────────
 

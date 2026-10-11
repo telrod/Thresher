@@ -59,7 +59,15 @@ final class DockBadgeMonitor {
     /// asymmetry this whole class exists for.
     private(set) var urgentNew: Int = 0
 
-    init(api: MessageAPI) { self.api = api }
+    private let pollerStatus: PollerStatus
+
+    init(api: MessageAPI, pollerStatus: PollerStatus = .shared) {
+        self.api = api
+        self.pollerStatus = pollerStatus
+        // Repaint AT a give-up or a recovery, not at the next health tick: with
+        // the window closed nothing else would move the badge.
+        pollerStatus.addObserver { [weak self] in self?.repaint() }
+    }
 
     /// Push the count in from the list model (window open). Repaints immediately.
     func updateUrgentCount(_ count: Int) {
@@ -104,6 +112,7 @@ final class DockBadgeMonitor {
         // the backend is struggling.
         if let report = try? await api.accountHealth() {
             health = report
+            pollerStatus.observe(report)
         }
         repaint()
     }
@@ -118,6 +127,9 @@ final class DockBadgeMonitor {
     /// disagreeing about whether mail is arriving is worse than one saying
     /// nothing.
     private func repaint() {
-        NSApp.dockTile.badgeLabel = DockBadge.label(urgentNew: urgentNew, health: health)
+        NSApp.dockTile.badgeLabel = DockBadge.label(
+            urgentNew: urgentNew,
+            health: health?.resolvingOverdueFirstChecks(clock: pollerStatus.firstCheckClock),
+            pollerStopped: pollerStatus.isStopped)
     }
 }

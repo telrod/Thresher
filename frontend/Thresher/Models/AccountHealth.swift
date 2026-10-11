@@ -166,11 +166,14 @@ enum AccountHealthVerdict {
             return "\(who) stopped checking for mail. New mail is not arriving — "
                  + "quit and reopen Thresher to start it again."
         case "stale":
+            // Alerts too (OI43): a Tier 1 alert comes from a poll, so a poller
+            // that is not polling is not alerting either, and "new mail" alone
+            // let a user waiting on an alert read this as not about them.
             if let silence {
-                return "\(who) hasn't checked for mail in \(silence). New mail may "
-                     + "not be arriving — quit and reopen Thresher if this persists."
+                return "\(who) hasn't checked for mail in \(silence). New mail and alerts "
+                     + "may be delayed — quit and reopen Thresher if this persists."
             }
-            return "\(who) hasn't checked for mail recently. New mail may not be arriving."
+            return "\(who) hasn't checked for mail recently. New mail and alerts may be delayed."
         case "never":
             // Not an error. On a fresh install this is simply the truth until
             // the first check completes, and it resolves itself.
