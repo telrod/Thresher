@@ -34,9 +34,21 @@ private final class PagingAPI: MessageAPI, @unchecked Sendable {
     let all: [MessageListRow]
     /// Every query the model issued — lets a test assert what was ASKED, not
     /// just what came back.
-    private(set) var queries: [ListQuery] = []
-    private(set) var bulkCalls: [(ids: [String], state: TriageState)] = []
-    var bulkError: Error?
+    ///
+    /// Behind a lock: the model's filter `didSet`s each start a reload task,
+    /// and the protocol methods are nonisolated, so two `listPage` calls can
+    /// append at once. Unlocked, that raced the array's buffer and crashed the
+    /// test host (EXC_BAD_ACCESS in Array.append, 2026-10-11).
+    private let lock = NSLock()
+    private var _queries: [ListQuery] = []
+    private var _bulkCalls: [(ids: [String], state: TriageState)] = []
+    private var _bulkError: Error?
+    var queries: [ListQuery] { lock.withLock { _queries } }
+    var bulkCalls: [(ids: [String], state: TriageState)] { lock.withLock { _bulkCalls } }
+    var bulkError: Error? {
+        get { lock.withLock { _bulkError } }
+        set { lock.withLock { _bulkError = newValue } }
+    }
 
     init(_ all: [MessageListRow]) { self.all = all }
 
@@ -56,7 +68,7 @@ private final class PagingAPI: MessageAPI, @unchecked Sendable {
     }
 
     func listPage(_ query: ListQuery) async throws -> MessagePage {
-        queries.append(query)
+        lock.withLock { _queries.append(query) }
         let hits = matching(query)
         let start = min(query.offset, hits.count)
         let end = min(start + query.limit, hits.count)
@@ -65,7 +77,7 @@ private final class PagingAPI: MessageAPI, @unchecked Sendable {
     }
 
     func triageBulk(ids: [String], state: TriageState) async throws -> BulkTriageResult {
-        bulkCalls.append((ids, state))
+        lock.withLock { _bulkCalls.append((ids, state)) }
         if let bulkError { throw bulkError }
         return BulkTriageResult(updated: ids.count, triageState: state.rawValue,
                                 wroteBack: 0, writeBackSkipped: true,
@@ -224,6 +236,10 @@ final class ListFiltersPaginationTests: XCTestCase {
         model.tierFilter = .tier4
         model.dateWindow = .olderThan90Days
         await model.loadInitial()
+        // Each filter set above started its own reload, and those took newer
+        // tickets than loadInitial's, which was then dropped as superseded.
+        // Asserting here without waiting for them saw [] one run in about 30.
+        await waitForReload()
         XCTAssertEqual(Set(model.rows.map(\.id)),
                        Set((0..<4).map { "hit:\($0)" }),
                        "chip AND tier AND date must all apply")
@@ -233,6 +249,7 @@ final class ListFiltersPaginationTests: XCTestCase {
         let (model, _) = makeModel((0..<20).map { row("m\($0)", tier: 4) })
         model.tierFilter = .tier1
         await model.loadInitial()
+        await waitForReload()      // the tier filter's own reload, as above
         XCTAssertTrue(model.rows.isEmpty)
         XCTAssertTrue(model.hasActiveFilters)
 
