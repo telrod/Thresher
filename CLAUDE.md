@@ -105,6 +105,12 @@ Two further traps when asserting on a rendered window:
   give the root an opaque background, and assert dark-ink pixels exist, not just
   that renders differ (`AskPeopleStepTests`).
 
+**Screenshots capture Thresher's window only, never the full screen.** A
+full-screen capture records whatever else is on the user's desktop. Find the
+window with `CGWindowListCopyWindowInfo` (owner `Thresher`, layer 0) and pass its
+number to `screencapture -x -o -l <id>`; if there is no Thresher window, take no
+screenshot.
+
 **A view-model test proves the state is right. It cannot prove a click reaches
 the state, or that the result is legible on screen.** This has now hidden a
 shipped feature twice behind a green suite.

@@ -63,6 +63,17 @@ fresh install cannot produce a Tier 1").
   temporary directory, guarded by a test.
   Not explained: the test host's own `AppDelegate` wrote no `start:` line in
   any 2026-10-10 run, even with a bundled backend and no launchd agent.
+- **OI44 — the daily digest never goes through the app.** The backend sends it
+  with osascript every time, so it shows as Script Editor even while Thresher is
+  running and owns delivery (observed 2026-10-11T00:05:55Z). The Tier 1/2 path
+  checks the app's delivery claim; `build_and_send_digest` does not. Fix: route
+  the digest through the app when the app owns delivery.
+- **OI45 — frontend test runs post real banners.** Tests that drive
+  `NotificationManager.tick()` post through the real notification center in the
+  test host, so a run can show a banner from the debug build's bundle ID (`….Thresher.debug`).
+  Confirmed: the banner recorded at 2026-10-10T21:42:31Z is
+  `thresher.notification.7`, titled "t" with body "x", which is
+  `testTickWithNewRowsFiresTheListRefreshHook`'s fixture.
 - **Group edits don't raise the staleness hint.** The "rules changed" hint
   counts only the `rules` table; `sender_groups` has no `updated_at`, so editing
   a group in Settings never tells the user that stored mail is out of date.

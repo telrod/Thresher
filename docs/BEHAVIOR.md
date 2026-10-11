@@ -184,10 +184,12 @@ mail is collected and surfaced in the app rather than interrupting you.
 ignore, at which point it's worse than none — the one message that mattered gets
 dismissed with the rest.
 
-**Who the banner comes from:** on a fresh install, alerts that arrive before
-onboarding completes are delivered by the backend and appear under **Script
-Editor**; once onboarding has granted notification permission they come from
-Thresher. (The same fallback applies whenever the app is quit, D84.)
+**Who the banner comes from:** Tier 1 and Tier 2 alerts come from **Thresher**
+while the app is running with notification permission. Otherwise the backend
+delivers them and they appear under **Script Editor**: when the app is quit, and
+on a fresh install until onboarding has granted permission (D84). **The daily
+digest always appears under Script Editor**, whether or not the app is running,
+because the backend always delivers it itself (OI44).
 
 ---
 
