@@ -75,6 +75,13 @@ fresh install cannot produce a Tier 1").
   `thresher.notification.7`, titled "t" with body "x", which is
   `testTickWithNewRowsFiresTheListRefreshHook`'s fixture. `NotificationManager`
   now has a `deliver` seam (D85); moving the remaining tests onto it fixes this.
+- **OI46 — the app starts its own poller even when another process holds port
+  8765.** `BackendSupervisor.start()` skips the API when the port is held but
+  starts a poller anyway, logged as `start: started poller, skipped API (port
+  held)`. So any backend started outside the app (`scripts/backend.sh`, a
+  leftover from an older build) still means two pollers on one mailbox and one
+  store. `dev-run.sh` no longer causes this itself (D86); the app-side fix is
+  deferred.
 - **Group edits don't raise the staleness hint.** The "rules changed" hint
   counts only the `rules` table; `sender_groups` has no `updated_at`, so editing
   a group in Settings never tells the user that stored mail is out of date.
