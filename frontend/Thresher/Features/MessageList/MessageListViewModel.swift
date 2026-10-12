@@ -70,7 +70,14 @@ final class MessageListViewModel {
 
     /// Session 34: the backend's last per-account health report, or nil if we
     /// have not successfully fetched one this session.
-    private(set) var accountHealth: AccountHealthReport?
+    ///
+    /// OI43: with any overdue first check already rewritten as "stale", so the
+    /// banners and the badge never say "waiting" about a check that is not
+    /// coming. Derived on read, because the clock moves without a refetch.
+    var accountHealth: AccountHealthReport? {
+        fetchedAccountHealth?.resolvingOverdueFirstChecks(clock: pollerStatus.firstCheckClock)
+    }
+    private var fetchedAccountHealth: AccountHealthReport?
 
     /// Is a mailbox failing to poll? Authoritative — this is the poller's own
     /// heartbeat, not an inference from the rows.
@@ -254,9 +261,15 @@ final class MessageListViewModel {
     /// to a question the user has already moved on from.
     private var reloadGeneration = 0
 
-    init(api: MessageAPI, defaults: UserDefaults = .standard) {
+    /// OI43: the app's own knowledge of its poller — the give-up banner, and
+    /// when the first mail check started (for an overdue one).
+    let pollerStatus: PollerStatus
+
+    init(api: MessageAPI, defaults: UserDefaults = .standard,
+         pollerStatus: PollerStatus = .shared) {
         self.api = api
         self.defaults = defaults
+        self.pollerStatus = pollerStatus
         // D50: restore the persisted chip; Open is the decided default.
         self.filter = defaults.string(forKey: TriageFilter.defaultsKey)
             .flatMap(TriageFilter.init(rawValue:)) ?? .open
@@ -358,7 +371,8 @@ final class MessageListViewModel {
         // backend is having trouble. Staleness still covers that case.
         if let report = try? await api.accountHealth() {
             guard generation == reloadGeneration else { return }
-            accountHealth = report
+            fetchedAccountHealth = report
+            pollerStatus.observe(report)
         }
     }
 

@@ -14,6 +14,7 @@
 //      the E21 investigation flagged.
 //
 
+import UserNotifications
 import XCTest
 @testable import Thresher
 
@@ -209,6 +210,37 @@ final class RefreshCadenceTests: XCTestCase {
                         + "POLL instead of the next heartbeat")
         XCTAssertEqual(posted.identifiers, ["thresher.notification.21"],
                        "one handed-off alert must post exactly one banner")
+    }
+
+    /// OI44 / D88: the daily digest arrives through the same feed as a Tier 1,
+    /// told apart by `notification_type` "digest" and a null `message_id`. It
+    /// posts with the backend's title and body, and carries no message id, so
+    /// clicking it opens the app rather than deep-linking to one message.
+    func testAHandedOffDigestPostsItsSummaryWithNoDeepLink() async {
+        let api = HandOffNotificationAPI()
+        var requests: [UNNotificationRequest] = []
+        let manager = NotificationManager(
+            api: api, center: .current(), defaults: throwawayDefaults(),
+            checkInterval: 0.05,
+            authorization: { .authorized },
+            deliver: { requests.append($0) })
+        api.handOff(NotificationItem(
+            id: 31, messageID: nil, notificationType: "digest",
+            sentAt: "2026-10-11T13:00:00+00:00",
+            title: "Daily digest · 4 Tier 3 messages", text: "Ann, Bo, Cy, and 1 more"))
+
+        manager.start(pollInterval: 3600)
+        let posted = await waitUntil { !requests.isEmpty }
+        _ = await waitUntil(timeout: 0.2) { false }
+        manager.stop()
+
+        XCTAssertTrue(posted, "a handed-off digest was never posted")
+        XCTAssertEqual(requests.count, 1, "one digest, one banner")
+        XCTAssertEqual(requests.first?.identifier, "thresher.notification.31")
+        XCTAssertEqual(requests.first?.content.title, "Daily digest · 4 Tier 3 messages")
+        XCTAssertEqual(requests.first?.content.body, "Ann, Bo, Cy, and 1 more")
+        XCTAssertNil(requests.first?.content.userInfo["message_id"],
+                     "a digest is not one message and must not deep-link to one")
     }
 
     // ── 2. Fast path: banners trigger a list refresh ──────────────────────────

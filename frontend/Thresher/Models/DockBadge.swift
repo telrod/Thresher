@@ -44,6 +44,21 @@ enum DockBadge {
     /// answer is the false-alarm direction — the same call the list banner
     /// makes, and the same reason it discards a failed fetch rather than
     /// clearing to nil.
+    /// The marker when the supervisor has given up on the poller (OI43). A
+    /// word rather than a second symbol: "!" means a mailbox is behind, "Off"
+    /// means nothing is checking mail at all, and the two must not be confused.
+    static let stoppedMarker = "Off"
+
+    /// The badge string, including the poller-stopped state. "Off" REPLACES the
+    /// "!" — the give-up explains the unhealthy mailboxes, so showing both
+    /// would say one thing twice — and the urgent count stays.
+    static func label(urgentNew: Int, health: AccountHealthReport?,
+                      pollerStopped: Bool) -> String {
+        guard pollerStopped else { return label(urgentNew: urgentNew, health: health) }
+        let count = max(urgentNew, 0)
+        return count > 0 ? "\(count) \(stoppedMarker)" : stoppedMarker
+    }
+
     static func label(urgentNew: Int, health: AccountHealthReport?) -> String {
         let count = max(urgentNew, 0)
         let countPart = count > 0 ? String(count) : ""

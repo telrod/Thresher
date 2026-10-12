@@ -126,6 +126,16 @@ down when you quit it; while the app runs, a supervisor restarts either one
 within about 30 seconds if it dies. Mail is fetched whether or not the *window*
 is open — closing the window is not quitting.
 
+**If the poller keeps dying, the supervisor stops restarting it, and tells
+you.** After three failed restarts it gives up rather than spin. The message
+list then shows "Thresher has stopped checking for mail, and alerts are paused."
+with a **Restart** button, the dock badge shows **Off** (beside the urgent
+count, if any), and one notification says "Thresher stopped checking mail". The
+banner stays until a mail check succeeds after the restart. A relaunch alone
+does not clear it. If no check succeeds within two poll intervals, the banner
+says "Restart didn't work. Quit and reopen Thresher." and offers Restart again
+(D87).
+
 **The cost, stated plainly: quit the app and nothing fetches mail.** Urgent mail
 waits until you next open it. This was a deliberate choice over always-on
 polling: `spec.md` promises periodic polling, never polling while the app is
@@ -188,8 +198,11 @@ dismissed with the rest.
 while the app is running with notification permission. Otherwise the backend
 delivers them and they appear under **Script Editor**: when the app is quit, and
 on a fresh install until onboarding has granted permission (D84). **The daily
-digest always appears under Script Editor**, whether or not the app is running,
-because the backend always delivers it itself (OI44).
+digest follows the same rule** (D88): it appears under Thresher while the app is
+running with permission, and under Script Editor when the backend has to deliver
+it itself — the app quit, or permission not granted. It is sent once either way.
+Clicking it opens Thresher; it does not open a particular message, because it
+summarizes several.
 
 ---
 
@@ -218,7 +231,10 @@ property of an unconfigured install, not a fault.
 
 **What happens:** On a first run the message list shows that a fetch is in
 progress rather than an empty list. If the fetch fails, it says so — it does not
-quietly settle into looking like an empty mailbox.
+quietly settle into looking like an empty mailbox. If no first check has
+finished within two poll intervals plus a minute of the poller starting, it
+stops saying "waiting" and says Thresher hasn't checked for mail, and that new
+mail and alerts may be delayed (D87).
 
 **Why:** "Still working" and "finished, found nothing" and "broken" are three
 different states that all render as a blank list. An empty list after a failure

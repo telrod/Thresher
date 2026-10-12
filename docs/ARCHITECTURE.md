@@ -276,7 +276,9 @@ via a **short-TTL heartbeat preference** and posts native
 its own, so exactly one fires. Every 30s the app checks in and fetches deferred
 alerts in the same pass, so a handed-off banner waits at most about 30s (**D85**).
 `osascript` is the floor when the app is closed, so the Tier 1 invariant never
-depends on the app being up. The daily digest always uses `osascript` (OI44).
+depends on the app being up. The daily digest takes the same handoff: a
+`digest` row with no `message_id`, delivered by whichever side owns delivery when
+it is built (**D88**).
 
 **Known gap (OI40):** a Tier 2 notification deferred by quiet hours is logged
 with `delivered=False` and **never replayed** — nothing watches for the window to

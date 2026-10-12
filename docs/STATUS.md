@@ -47,27 +47,23 @@ fresh install cannot produce a Tier 1").
   relies on the client's retry of refused GETs, which spans ~450ms; the
   measured cold-start gap was ~490ms. Opened within about half a second of
   launch, Settings can show "Backend unreachable" and empty panes until reopened.
-- **OI43 — when the supervisor gives up on the poller, the app does not say
-  so.** After 3 failed restarts it stops relaunching the poller, and mail and
-  alerts stop with it. The only record is a line in `supervisor.log`;
-  `hasGivenUp(on:)` is not read by any view. The user sees a warning only when
-  the account heartbeat goes stale: "hasn't checked for mail in …" in the list
-  and the dock badge, about 11 minutes after the last poll at the default
-  interval. It does not mention alerts. A poller that dies before its first poll
-  instead shows "Waiting for the first mail check", which reads as normal,
-  indefinitely. Note when reading an existing `supervisor.log`: until
-  2026-10-10, `BackendSupervisorTests` wrote their "gave up" lines into the real
-  log, two per frontend run ("last exit 1" and "last exit unknown" in the same
-  second). The pair at 2026-10-10T18:12:13Z matches a test run to the second,
-  and every earlier pair has the same signature. The tests now log to a
-  temporary directory, guarded by a test.
-  Not explained: the test host's own `AppDelegate` wrote no `start:` line in
-  any 2026-10-10 run, even with a bundled backend and no launchd agent.
-- **OI44 — the daily digest never goes through the app.** The backend sends it
-  with osascript every time, so it shows as Script Editor even while Thresher is
-  running and owns delivery (observed 2026-10-11T00:05:55Z). The Tier 1/2 path
-  checks the app's delivery claim; `build_and_send_digest` does not. Fix: route
-  the digest through the app when the app owns delivery.
+- **OI43 — background failures: narrowed (D87).** A give-up now shows a
+  main-window banner with Restart, an "Off" dock badge and one alert, and an
+  overdue first check reads as stale rather than "Waiting for the first mail
+  check". What remains:
+  - The alert needs notification permission. Without it there is no alert, and
+    the banner and badge are the only signals.
+  - Only the poller is covered. A give-up on the API is not surfaced beyond the
+    launch screen's "Can't reach the Thresher backend".
+  - The banner is in the main window only, not in Settings.
+  - When launchd owns the poller the app has no start time, so an overdue first
+    check still says "Waiting".
+  - Note when reading an existing `supervisor.log`: until 2026-10-10,
+    `BackendSupervisorTests` wrote their "gave up" lines into the real log, two
+    per frontend run ("last exit 1" and "last exit unknown" in the same second).
+    The tests now log to a temporary directory, guarded by a test. Not
+    explained: the test host's own `AppDelegate` wrote no `start:` line in any
+    2026-10-10 run, even with a bundled backend and no launchd agent.
 - **OI45 — frontend test runs post real banners.** Tests that drive
   `NotificationManager.tick()` post through the real notification center in the
   test host, so a run can show a banner from the debug build's bundle ID (`….Thresher.debug`).
@@ -98,6 +94,12 @@ fresh install cannot produce a Tier 1").
   group's tier floor or added their own Tier 1 rule in Settings.
 
 ## Resolved
+
+- **OI44 — the daily digest never went through the app: closed** (2026-10-11,
+  D88). `build_and_send_digest` now checks the app's delivery claim like the
+  Tier 1/2 path. Verified on the real machine: a digest handed off at 21:48:11Z
+  was recorded by Notification Center under the app's own bundle identifier at
+  21:48:28Z, with no Script Editor record.
 
 - **Migration for existing group patterns: not needed** (2026-10-04). Validation
   applies on write only (D81). The only database that predates the change has

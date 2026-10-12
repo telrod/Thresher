@@ -88,9 +88,15 @@ struct MessageListView: View {
         VStack(spacing: 0) {
             chipBar
             filterBar
-            firstFetchBanner
-            accountHealthBanner
-            stalenessBanner
+            if model.pollerStatus.isStopped {
+                // OI43: the give-up outranks every other health line. It is the
+                // cause of whatever they would say, and it has the fix.
+                PollerStoppedBanner(status: model.pollerStatus)
+            } else {
+                firstFetchBanner
+                accountHealthBanner
+                stalenessBanner
+            }
             if model.isSelecting { bulkBar }
             list
         }
@@ -761,5 +767,51 @@ struct MessageListView: View {
         } actions: {
             Button("Try Again") { Task { await model.userRefresh() } }
         }
+    }
+}
+
+/// OI43: the supervisor has given up on the poller. Persistent — no dismiss,
+/// for the reason the health banner has none — until a poll succeeds after a
+/// Restart. Orange like the other verified faults, with the one action that
+/// fixes it.
+@MainActor
+struct PollerStoppedBanner: View {
+    let status: PollerStatus
+
+    static func message(for state: PollerStatus.State) -> String {
+        switch state {
+        case .restarting:    return "Restarting… Thresher resumes once it has checked for mail."
+        case .restartFailed: return "Restart didn't work. Quit and reopen Thresher."
+        case .gaveUp, .running:
+            return "Thresher has stopped checking for mail, and alerts are paused."
+        }
+    }
+
+    /// Restart is offered whenever the banner is not already waiting on one.
+    static func offersRestart(in state: PollerStatus.State) -> Bool {
+        if case .restarting = state { return false }
+        return true
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(Self.message(for: status.state))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            if Self.offersRestart(in: status.state) {
+                Button("Restart") { status.restart() }
+                    .controlSize(.small)
+                    .accessibilityIdentifier("list.pollerStopped.restart")
+            } else {
+                ProgressView().controlSize(.small)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(Color.orange)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.orange.opacity(0.18))
+        .accessibilityIdentifier("list.pollerStopped")
     }
 }

@@ -103,9 +103,10 @@ final class AccountHealthClockTests: XCTestCase {
         let warning = AccountHealthVerdict.evaluate(silent)
         XCTAssertNotNil(warning,
                         "the banner must fire once a mailbox has gone silent")
-        XCTAssertTrue(warning!.message.lowercased().contains("not be arriving")
-                        || warning!.message.lowercased().contains("not arriving"),
-                      "the user needs to be told mail is not arriving; got: \(warning!.message)")
+        // OI43: the sentence names alerts as well as mail — a poller that is
+        // not polling is not alerting either.
+        XCTAssertTrue(warning!.message.lowercased().contains("new mail and alerts may be delayed"),
+                      "the user needs to be told mail and alerts are affected; got: \(warning!.message)")
     }
 
     /// THE F1 LESSON, DIRECTION 1 — a TOTAL outage says the generic sentence
