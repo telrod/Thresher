@@ -47,7 +47,7 @@ makes both compete for the same cores and causes flaky failures.
 
 ```
 /usr/bin/python3 -m venv --clear .venv
-.venv/bin/python -m pip install flask pytest
+.venv/bin/python -m pip install -r backend/requirements.txt pytest
 cd backend && ../.venv/bin/python -m pytest tests/ -q -rs
 ```
 

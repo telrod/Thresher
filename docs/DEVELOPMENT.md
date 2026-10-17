@@ -66,10 +66,13 @@ prevent**, so every one of those is a hard failure rather than a warning.
 ### What ships, and what does not
 
 - `backend/` sources, minus tests, caches, and `seed.sql`
-- `_vendor/` — flask and its dependencies, ~2.6 MB
-- **No Python runtime.** macOS ships `/usr/bin/python3` (3.9.6 on Sonoma) and
-  flask is the only third-party dependency (D68). Bundling an interpreter would
-  add 24–40 MB plus a relocation and signing problem for no capability we need.
+- `_vendor/` — flask and its dependencies at the pinned versions, ~2.6 MB
+- **No Python runtime.** `/usr/bin/python3` is a shim that runs the Python 3.9
+  inside Xcode or the Command Line Tools, chosen by `xcode-select` (3.9.6 with
+  Xcode 15.4), and flask is the only third-party package imported (D68), pinned
+  with its dependencies in `backend/requirements.txt` (D90). Bundling an
+  interpreter would add 24–40 MB plus a relocation and signing problem for no
+  capability we need.
 
 `backend/db/seed.sql` holds **real contacts** and is gitignored; the bundle
 ships `seed.example.sql` and `init_db` seeds from it on first run. `build.sh`

@@ -52,7 +52,7 @@ locally before believing a notification or date-handling change:
 
 ```
 /usr/bin/python3 -m venv --clear .venv                      # same as CONTRIBUTING.md
-.venv/bin/python -m pip install flask pytest
+.venv/bin/python -m pip install -r backend/requirements.txt pytest
 cd backend && ../.venv/bin/python -m pytest tests/ -q -rs   # 0 skipped
 ```
 
