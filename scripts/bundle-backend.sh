@@ -12,10 +12,12 @@
 #     seed.sql holds REAL CONTACTS (that is why it is gitignored); shipping it
 #     inside an app bundle would distribute the author's address book. The committed
 #     seed.example.sql goes instead, and init_db seeds from it on first run.
-#   - `_vendor/` — flask and its dependencies, resolved FOR THE FLOOR
-#     INTERPRETER (see below), ~2.6 MB.
-#   - No Python runtime. macOS ships /usr/bin/python3 and the whole API was
-#     verified to run on it (3.9.6) with the vendored tree. Bundling an
+#   - `_vendor/` — flask and its dependencies at the exact versions pinned in
+#     backend/requirements.txt (D90), resolved FOR THE FLOOR INTERPRETER (see
+#     below), ~2.6 MB.
+#   - No Python runtime. /usr/bin/python3 is a shim that runs the Python 3.9
+#     inside Xcode or the Command Line Tools (chosen by xcode-select), and the
+#     whole API was verified to run on it (3.9.6) with the vendored tree. Bundling an
 #     interpreter would add ~24-40 MB and a framework-relocation/signing problem
 #     for no capability we need.
 #
@@ -91,13 +93,48 @@ say "stamped BUILD_SHA=$SHA"
 VENDOR="$BACKEND_DEST/_vendor"
 mkdir -p "$VENDOR"
 # --target with the FLOOR interpreter, so wheels match what will run them.
+# Installed from exact pins (D90): an unpinned `flask` would pick up whatever
+# release is newest on the day of the build.
+REQUIREMENTS="$SRC/requirements.txt"
+[[ -f "$REQUIREMENTS" ]] || { echo "error: $REQUIREMENTS missing" >&2; exit 1; }
 "$FLOOR_PYTHON" -m pip install --quiet --disable-pip-version-check \
-    --target "$VENDOR" flask >/dev/null
+    --target "$VENDOR" -r "$REQUIREMENTS" >/dev/null
 # pip leaves a bin/ of console scripts with absolute shebangs into the build
 # machine's paths. Useless in a bundle and actively misleading in a signed app.
 rm -rf "$VENDOR/bin"
 find "$VENDOR" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
-say "vendored flask for $("$FLOOR_PYTHON" --version 2>&1) ($(du -sh "$VENDOR" | cut -f1))"
+
+# What was vendored must be exactly what is pinned: no package missing, none
+# extra, no version different. pip satisfies a pin it can, so a dependency added
+# by a future bump would otherwise arrive unpinned without anyone noticing.
+if ! "$FLOOR_PYTHON" - "$REQUIREMENTS" "$VENDOR" <<'EOF'
+import pathlib, re, sys
+norm = lambda n: re.sub(r"[-_.]+", "_", n).lower()
+pinned = {}
+for line in pathlib.Path(sys.argv[1]).read_text().splitlines():
+    line = line.split("#", 1)[0].strip()
+    if not line:
+        continue
+    m = re.fullmatch(r"([A-Za-z0-9_.-]+)==([A-Za-z0-9_.+!-]+)", line)
+    if not m:
+        sys.exit(f"not an exact pin: {line!r}")
+    pinned[norm(m.group(1))] = m.group(2)
+vendored = {}
+for d in pathlib.Path(sys.argv[2]).glob("*.dist-info"):
+    name, version = d.name[: -len(".dist-info")].rsplit("-", 1)
+    vendored[norm(name)] = version
+if vendored != pinned:
+    for n in sorted(set(pinned) | set(vendored)):
+        if pinned.get(n) != vendored.get(n):
+            print(f"  {n}: pinned {pinned.get(n)}, vendored {vendored.get(n)}",
+                  file=sys.stderr)
+    sys.exit(1)
+EOF
+then
+    echo "error: vendored packages differ from $REQUIREMENTS" >&2
+    exit 1
+fi
+say "vendored $(grep -c '==' "$REQUIREMENTS") pinned packages for $("$FLOOR_PYTHON" --version 2>&1) ($(du -sh "$VENDOR" | cut -f1)), matching requirements.txt"
 
 # ── verify, rather than assume ─────────────────────────────────────────────
 # The bundle is only useful if the floor interpreter can actually import the API

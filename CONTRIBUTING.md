@@ -9,8 +9,9 @@ Everyone taking part is expected to follow the
 
 ## Build
 
-You need macOS 14 (Sonoma) or later and Xcode. No Python install is needed:
-the app runs its backend on the `/usr/bin/python3` that ships with macOS.
+You need macOS 14 (Sonoma) or later and Xcode. No separate Python install is
+needed: the app runs its backend on `/usr/bin/python3`, a shim that runs the
+Python 3.9 inside Xcode or the Command Line Tools, chosen by `xcode-select`.
 
 ```
 scripts/build.sh            # → build/Thresher.app
@@ -53,8 +54,8 @@ cd backend && ../.venv/bin/python -m pytest tests/ -q -rs
 `--clear` rebuilds an existing `.venv` so it actually uses the system 3.9
 interpreter; without it, an older `.venv` keeps whatever Python made it.
 
-Run it on `/usr/bin/python3` (3.9 on macOS 14), as CI does, because that is
-the interpreter the app ships with. A newer Python can pass tests that the
+Run it on `/usr/bin/python3` (3.9.6 with Xcode 15.4, as in CI), because that
+is the interpreter the app runs on. A newer Python can pass tests that the
 shipped app would fail. The suite expects **0 skipped**: a skip means a guard
 did not run. CI fails on any skip.
 

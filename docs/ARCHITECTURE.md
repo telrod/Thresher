@@ -93,9 +93,12 @@ either accept a real connection attempt or stop the poller first.
 ### What ships
 
 `scripts/build.sh` bundles `backend/` plus a vendored Flask into
-`Contents/Resources`. **No Python runtime is bundled** (**D68**): macOS's stock
-`/usr/bin/python3` runs it, and Flask is the only third-party dependency the
-backend has — the poller needs none.
+`Contents/Resources`. **No Python runtime is bundled** (**D68**): `/usr/bin/python3`
+runs it. That is a shim that runs the Python 3.9 inside Xcode or the Command
+Line Tools, chosen by `xcode-select`, so the Mac the app runs on needs one of
+them (OI41). Flask is the only third-party package the backend imports — the
+poller needs none — and Flask and its dependencies are pinned exactly in
+`backend/requirements.txt` (**D90**).
 
 That makes **Python 3.9 a hard floor**, which held by luck until it was pinned:
 every `X | None` annotation happens to be quoted, so 3.9 never evaluates one.

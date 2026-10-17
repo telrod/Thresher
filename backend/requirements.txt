@@ -1,0 +1,16 @@
+# Runtime dependencies vendored into the app bundle by scripts/bundle-backend.sh
+# (D90). Every package is pinned exactly, including Flask's own dependencies, so
+# a fresh build vendors the same tree as the last one. Each version supports
+# Python 3.9, the interpreter the app runs on (D68).
+#
+# To bump a pin, see D90 in DECISIONS.md. bundle-backend.sh fails the build if
+# what it vendored differs from this list.
+flask==3.1.3
+werkzeug==3.1.9
+jinja2==3.1.6
+markupsafe==3.0.4
+itsdangerous==2.2.0
+click==8.1.8
+blinker==1.9.0
+importlib_metadata==8.7.1
+zipp==3.23.1

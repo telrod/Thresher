@@ -25,8 +25,11 @@ mv build/Thresher.app /Applications/
 open /Applications/Thresher.app
 ```
 
-**You do not need to install Python, Flask, or anything else.** The app bundles
-its own backend and runs it on the `/usr/bin/python3` that ships with macOS.
+**You do not need to install Python, Flask, or anything else** beyond the Xcode
+you build with. The app bundles its own backend and runs it on
+`/usr/bin/python3`, a shim that runs the Python 3.9 inside Xcode or the Command
+Line Tools, chosen by `xcode-select`. Keep one of them installed: without
+either, the app has no backend.
 
 **Requirements:** macOS 14 (Sonoma) or later, Xcode (to build), and a Gmail
 account with an app password.

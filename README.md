@@ -110,8 +110,10 @@ app password at once, and the 16 characters being shown only once.
   on that account
 - **Xcode**, to build
 
-No Python installation is needed. The app bundles its own backend and runs it on
-the `/usr/bin/python3` that ships with macOS.
+No separate Python installation is needed. The app bundles its own backend and
+runs it on `/usr/bin/python3`. That is not a Python built into macOS: it is a
+shim that runs the Python 3.9 inside Xcode or the Command Line Tools, whichever
+`xcode-select` has chosen.
 
 ## Build and run
 
@@ -138,6 +140,9 @@ The app starts and stops its own backend, so there is nothing else to run.
 
 - **No prebuilt binary.** Distribution is source-only — nothing is signed or
   notarized, so you build it yourself.
+- **A built app needs Xcode or the Command Line Tools on the Mac it runs on.**
+  Its backend runs on the Python inside them, so on a Mac with neither the app
+  has no backend.
 - **macOS only.** Builds and passes its backend test suite on Apple Silicon in
   CI (GitHub's `macos-14` arm64 runner); nobody has yet used the app hands-on
   on an Apple Silicon Mac ([issue #2](../../issues/2)).
