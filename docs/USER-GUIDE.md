@@ -25,8 +25,11 @@ mv build/Thresher.app /Applications/
 open /Applications/Thresher.app
 ```
 
-**You do not need to install Python, Flask, or anything else.** The app bundles
-its own backend and runs it on the `/usr/bin/python3` that ships with macOS.
+**You do not need to install Python, Flask, or anything else** beyond the Xcode
+you build with. The app bundles its own backend and runs it on
+`/usr/bin/python3`, a shim that runs the Python 3.9 inside Xcode or the Command
+Line Tools, chosen by `xcode-select`. Keep one of them installed: without
+either, the app has no backend.
 
 **Requirements:** macOS 14 (Sonoma) or later, Xcode (to build), and a Gmail
 account with an app password.
@@ -311,10 +314,34 @@ banner appears at the top of the message list and the dock badge gains a `!`.
 That check is keyed on **silence** — a poller that dies without writing an error
 is still caught, because absence is the signal.
 
+If the mail checker keeps crashing, Thresher relaunches it, and after three
+failed relaunches it stops trying and tells you in three places:
+
+- A banner at the top of the message list: "Thresher has stopped checking for
+  mail, and alerts are paused." It has a **Restart** button. The banner clears
+  only once a mail check actually succeeds after the restart. If none does
+  within two poll intervals, it says "Restart didn't work. Quit and reopen
+  Thresher.", and Restart stays available.
+- The dock badge shows **Off**, next to the urgent count if there is one
+  (`3 Off`). `!` still means a mailbox is behind; `Off` means checking has
+  stopped.
+- One notification, "Thresher stopped checking mail", if Thresher has
+  notification permission.
+
+The banner is shown in the main window only, not in Settings.
+
 **Settings → Email accounts** shows per-account status. Note that "Test
 connection" answers a different question: it checks whether the credential still
 works, not whether anything is actually being fetched. A mailbox can pass that
 test while not being polled at all.
+
+### Notifications show Script Editor instead of Thresher
+
+Thresher posts alerts as itself only when it has notification permission. When
+it doesn't, alerts arrive through `osascript`, so macOS labels them with Script
+Editor's name and icon (D84). They are still Thresher's alerts. To get them
+under Thresher's name, allow notifications for Thresher in **System Settings →
+Notifications**.
 
 ### Authentication suddenly fails
 

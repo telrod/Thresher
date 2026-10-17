@@ -36,9 +36,19 @@ fresh install cannot produce a Tier 1").
 - **Frontend suite in CI** ([#4](../../../issues/4)). CI runs the build and the
   backend suite only, because the frontend suite has not been shown to pass on a
   hosted runner.
+- **Sign in with Google (OAuth)** ([#8](../../../issues/8)). Thresher connects
+  with an app password, so accounts that can't create one, such as Google
+  Advanced Protection accounts, can't connect. Not planned; the issue collects
+  demand.
 - **The T4→T3 default change.** Deferred.
-- **OI41 — the bundled backend depends on macOS's built-in Python.** The app
-  runs its backend on `/usr/bin/python3` (3.9.6 on Sonoma, D68). Its age has
+- **OI41 — the bundled backend depends on the Python inside Xcode or the
+  Command Line Tools.** The app runs its backend on `/usr/bin/python3` (D68).
+  That is not a Python built into macOS: it is a shim that runs the Python 3.9
+  inside Xcode or the Command Line Tools, whichever `xcode-select` has chosen
+  (3.9.6 with Xcode 15.4). Two consequences. On a Mac with neither installed
+  there is no interpreter, so a built app copied there has no backend. And the
+  Python version follows the selected Xcode, so switching or updating Xcode can
+  change the interpreter under an installed app. Its age has
   already hidden one defect: `fromisoformat` rejected the app's `Z` timestamps,
   so native notification delivery never took over (D84). Apple may change or
   remove this interpreter. Not addressed yet.

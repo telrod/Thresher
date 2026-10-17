@@ -110,8 +110,10 @@ app password at once, and the 16 characters being shown only once.
   on that account
 - **Xcode**, to build
 
-No Python installation is needed. The app bundles its own backend and runs it on
-the `/usr/bin/python3` that ships with macOS.
+No separate Python installation is needed. The app bundles its own backend and
+runs it on `/usr/bin/python3`. That is not a Python built into macOS: it is a
+shim that runs the Python 3.9 inside Xcode or the Command Line Tools, whichever
+`xcode-select` has chosen.
 
 ## Build and run
 
@@ -138,8 +140,16 @@ The app starts and stops its own backend, so there is nothing else to run.
 
 - **No prebuilt binary.** Distribution is source-only — nothing is signed or
   notarized, so you build it yourself.
-- **macOS only**, and the **Apple Silicon build is untested** (it has only been
-  built and run on Intel).
+- **A built app needs Xcode or the Command Line Tools on the Mac it runs on.**
+  Its backend runs on the Python inside them, so on a Mac with neither the app
+  has no backend.
+- **macOS only.** Builds and passes its backend test suite on Apple Silicon in
+  CI (GitHub's `macos-14` arm64 runner); nobody has yet used the app hands-on
+  on an Apple Silicon Mac ([issue #2](../../issues/2)).
+- **Alerts post as Thresher only with notification permission.** Without it,
+  they arrive labelled as Script Editor, because the fallback path posts them
+  through `osascript` (D84). Allow notifications when the app asks, or later
+  in System Settings › Notifications.
 - **Gmail only.** Other IMAP providers are neither supported nor tested.
 - **App passwords, not OAuth.** Accounts enrolled in Google Advanced Protection
   cannot use app passwords at all, so Thresher cannot connect to them.
@@ -186,6 +196,13 @@ was recorded as it happened rather than tidied afterwards. `DECISIONS.md` and th
 work orders are the interesting part: decisions with their reasoning, several
 reversals kept in place, and a specification that visibly failed to survive
 contact with implementation — which is the finding, not an embarrassment.
+
+## Contributing
+
+Contributions are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+building and running the tests, report vulnerabilities privately as described
+in [`SECURITY.md`](SECURITY.md), and follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 

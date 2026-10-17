@@ -63,5 +63,6 @@ Out of scope:
   does.
 - The lack of code signing and notarization. Distribution is source-only and
   this is documented.
-- Vulnerabilities in Gmail, macOS, or the Python and SQLite that ship with
-  macOS. Report those to their vendors.
+- Vulnerabilities in Gmail, macOS, the SQLite that ships with macOS, or the
+  Python 3.9 inside Xcode or the Command Line Tools that `/usr/bin/python3`
+  runs. Report those to their vendors.

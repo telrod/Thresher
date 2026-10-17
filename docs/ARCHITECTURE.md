@@ -93,9 +93,12 @@ either accept a real connection attempt or stop the poller first.
 ### What ships
 
 `scripts/build.sh` bundles `backend/` plus a vendored Flask into
-`Contents/Resources`. **No Python runtime is bundled** (**D68**): macOS's stock
-`/usr/bin/python3` runs it, and Flask is the only third-party dependency the
-backend has — the poller needs none.
+`Contents/Resources`. **No Python runtime is bundled** (**D68**): `/usr/bin/python3`
+runs it. That is a shim that runs the Python 3.9 inside Xcode or the Command
+Line Tools, chosen by `xcode-select`, so the Mac the app runs on needs one of
+them (OI41). Flask is the only third-party package the backend imports — the
+poller needs none — and Flask and its dependencies are pinned exactly in
+`backend/requirements.txt` (**D90**).
 
 That makes **Python 3.9 a hard floor**, which held by luck until it was pinned:
 every `X | None` annotation happens to be quoted, so 3.9 never evaluates one.
@@ -337,11 +340,11 @@ offset and `datetime('now')` does not.
 ## 8. Running the test suites
 
 ```
-cd backend && python3 -m pytest tests/ -q                    # 485 tests, ~27s
+cd backend && python3 -m pytest tests/ -q                    # 520 tests, ~30s
 
 xcodebuild -project frontend/Thresher.xcodeproj \
   -scheme Thresher -destination 'platform=macOS' \
-  -only-testing:ThresherTests test                           # 274 tests, ~92s
+  -only-testing:ThresherTests test                           # 301 tests, ~100s
 ```
 
 ⚠️ **Do not run the two suites concurrently.** The frontend suite drives a real
@@ -398,4 +401,6 @@ with no one added: 0 at T1, 15 at T2, 21 at T3, 70 at T4, 44 at T5. The
 "Try with sample data" mode is still deferred (`docs/IDEAS.md` §3).
 
 **Gmail only, app password only, alpha quality.** There is no prebuilt binary,
-nothing is signed or notarized, and the Apple Silicon build is untested.
+nothing is signed or notarized. It builds and passes its backend test suite on
+Apple Silicon in CI (GitHub's `macos-14` arm64 runner); nobody has yet used the
+app hands-on on an Apple Silicon Mac (issue #2).

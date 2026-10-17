@@ -44,7 +44,7 @@ jobs:
       - name: Install backend test dependencies
         run: |
           /usr/bin/python3 -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/python" -m pip install --disable-pip-version-check flask pytest
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --disable-pip-version-check -r backend/requirements.txt pytest
 
       - name: Backend suite
         working-directory: backend

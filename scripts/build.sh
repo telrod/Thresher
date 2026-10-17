@@ -11,11 +11,13 @@
 # artifacts agree. This produces an ARTIFACT and stops. It never installs, never
 # touches a running backend, and never starts anything.
 #
-# WHAT IT DOES NOT BUNDLE: a Python runtime. macOS ships /usr/bin/python3 and
-# flask is the only third-party dependency (D68), so the app runs on a stock
-# machine with nothing installed. scripts/bundle-backend.sh does that work — it
-# is invoked by the Xcode "Bundle backend" build phase, not called from here, so
-# there is exactly one bundling implementation and it cannot drift.
+# WHAT IT DOES NOT BUNDLE: a Python runtime. /usr/bin/python3 is a shim that
+# runs the Python 3.9 inside Xcode or the Command Line Tools (chosen by
+# xcode-select), and flask is the only third-party package imported (D68), so
+# the app runs on any Mac that has one of those, with nothing else installed.
+# scripts/bundle-backend.sh does that work — it is invoked by the Xcode "Bundle
+# backend" build phase, not called from here, so there is exactly one bundling
+# implementation and it cannot drift.
 #
 # Usage:
 #   scripts/build.sh                    # build to ./build/Thresher.app
@@ -117,9 +119,10 @@ fi
 ok "$XCODE_VER"
 
 if [[ ! -x "$FLOOR_PYTHON" ]]; then
-    fail "no interpreter at $FLOOR_PYTHON — the bundled backend runs on the system
-      python3 that ships with macOS. If it is missing, the command line tools
-      install usually restores it:  xcode-select --install"
+    fail "no interpreter at $FLOOR_PYTHON — the bundled backend runs on
+      /usr/bin/python3, a shim that runs the Python inside Xcode or the Command
+      Line Tools. If it is missing, the command line tools install usually
+      restores it:  xcode-select --install"
 fi
 ok "$("$FLOOR_PYTHON" --version 2>&1) at $FLOOR_PYTHON"
 
