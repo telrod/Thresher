@@ -1,7 +1,9 @@
 # Decisions
 
-**83 entries, D1–D82.** Every numbered decision made while
-building Thresher, with the reasoning that produced it.
+**90 entries, D1–D89: 88 decisions plus 2 amendment rows.** D39 was never
+allocated, and D52 and D53 each have a second `(built)` row (see Reading notes).
+Every numbered decision made while building Thresher, with the reasoning that
+produced it.
 
 ## What these are
 

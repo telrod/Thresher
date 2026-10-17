@@ -337,11 +337,11 @@ offset and `datetime('now')` does not.
 ## 8. Running the test suites
 
 ```
-cd backend && python3 -m pytest tests/ -q                    # 485 tests, ~27s
+cd backend && python3 -m pytest tests/ -q                    # 520 tests, ~30s
 
 xcodebuild -project frontend/Thresher.xcodeproj \
   -scheme Thresher -destination 'platform=macOS' \
-  -only-testing:ThresherTests test                           # 274 tests, ~92s
+  -only-testing:ThresherTests test                           # 301 tests, ~100s
 ```
 
 ⚠️ **Do not run the two suites concurrently.** The frontend suite drives a real
@@ -398,4 +398,6 @@ with no one added: 0 at T1, 15 at T2, 21 at T3, 70 at T4, 44 at T5. The
 "Try with sample data" mode is still deferred (`docs/IDEAS.md` §3).
 
 **Gmail only, app password only, alpha quality.** There is no prebuilt binary,
-nothing is signed or notarized, and the Apple Silicon build is untested.
+nothing is signed or notarized. It builds and passes its backend test suite on
+Apple Silicon in CI (GitHub's `macos-14` arm64 runner); nobody has yet used the
+app hands-on on an Apple Silicon Mac (issue #2).
