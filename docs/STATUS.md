@@ -36,6 +36,10 @@ fresh install cannot produce a Tier 1").
 - **Frontend suite in CI** ([#4](../../../issues/4)). CI runs the build and the
   backend suite only, because the frontend suite has not been shown to pass on a
   hosted runner.
+- **Sign in with Google (OAuth)** ([#8](../../../issues/8)). Thresher connects
+  with an app password, so accounts that can't create one, such as Google
+  Advanced Protection accounts, can't connect. Not planned; the issue collects
+  demand.
 - **The T4→T3 default change.** Deferred.
 - **OI41 — the bundled backend depends on the Python inside Xcode or the
   Command Line Tools.** The app runs its backend on `/usr/bin/python3` (D68).
